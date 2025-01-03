@@ -40,6 +40,19 @@ Use the following command in the directory to build a binary for your system (th
 npx @electron/packager . komorebi-loading --out=dist --icon=assets/cat.ico --overwrite
 ```
 
+## komorebi.json ignore rule
+
+You will need to make komorebi ignore this application, so it's advised to set this rule in your `komorebi.json` file first.
+
+```json
+"ignore_rules": [{
+    "kind": "Title",
+    "id": "WaitForMeKomorebi",
+    "matching_strategy": "Contains"
+}],
+```
+
+
 ## Credits
 
 The gif of the cat belongs to [robokoboto](https://alphacoders.com/users/profile/69089/robokoboto) and was sourced from <https://gifs.alphacoders.com/gifs/view/4244>. The license of this repository does not cover this asset as it does not belong to me.
