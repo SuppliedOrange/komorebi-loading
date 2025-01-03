@@ -34,7 +34,7 @@ electron .
 
 ## Building using @electron/packager
 
-Use the following command in the directory to build a binary for your system (the .ico file works on windows only).
+Use the following command in the directory to build a binary for your system.
 
 ```console
 npx @electron/packager . komorebi-loading --out=dist --icon=assets/cat.ico --overwrite
