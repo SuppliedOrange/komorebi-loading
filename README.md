@@ -28,7 +28,7 @@ Use this command in the directory to run the program
 
 ```console
 npm start
-or
+# or
 electron .
 ```
 
