@@ -14,6 +14,7 @@ const createWindow = () => {
       height: 400,
       title: "WaitForMeKomorebi",
       titleBarStyle: 'hidden',
+      fullscreenable: false,
       webPreferences: {
         nodeIntegration: true,
         contextIsolation: false,
@@ -107,8 +108,14 @@ async function startLoadingKomorebi() {
             if ( await checkIfKomorebiIsRunning() ) {
 
                 log('Komorebi started successfully', 'INFO');
-
-                win.webContents.send('komorebiStatus', { status: true });
+                
+                try {
+                    win.webContents.send('komorebiStatus', { status: true });
+                }
+                catch (e) {
+                    log('Failed to send komorebiStatus message', 'ERROR');
+                }
+                
     
                 await new Promise(r => setTimeout(r, 2000));
                 await fadeOutWindow();

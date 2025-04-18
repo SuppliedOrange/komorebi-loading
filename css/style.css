@@ -1,31 +1,43 @@
 .close-button {
-    color: lightcoral;
+	color: lightcoral;
 }
 
 .cat-gif {
-    width: 10rem;
+	width: 10rem;
 }
 
 .tab-pane {
-    transition: opacity 0.3s ease;
+	transition: opacity 0.3s ease;
 }
 
 .btn-minimal {
-    border: none;
-    background: none;
-    opacity: 0.8;
-    transition: opacity 0.2s;
+	border: none;
+	background: none;
+	opacity: 0.8;
+	transition: opacity 0.2s;
 }
 
 .btn-minimal:hover {
-    opacity: 1;
+	opacity: 1;
 }
 
 .status-text {
-    font-size: 1.1rem;
-    opacity: 0.9;
+	font-size: 1.1rem;
+	opacity: 0.9;
 }
 
 ::-webkit-scrollbar {
-    display: none;
+	display: none;
+}
+
+body {
+	-webkit-app-region: drag;
+}
+
+button,
+input,
+a,
+[role="button"],
+.non-draggable {
+	-webkit-app-region: no-drag;
 }
