@@ -1,5 +1,12 @@
 .close-button {
 	color: lightcoral;
+	font-size: 0.9rem;
+}
+
+.minimize-button {
+	color: lightcoral; 
+	font-size: 0.9rem;
+	transition: transform 0.2s;
 }
 
 .cat-gif {

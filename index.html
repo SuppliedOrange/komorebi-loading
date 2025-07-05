@@ -15,7 +15,11 @@
 					class="d-flex flex-row align-items-end justify-content-end"
 				>
 					<div class="d-flex flex-column align-items-end mx-3">
-						<button class="close-button btn-minimal">end</button>
+						<div class="d-flex" style="gap: 0.5rem;">
+							<button class="minimize-button btn-minimal">hide</button>
+							<button class="close-button btn-minimal">end</button>
+						</div>
+
 					</div>
 				</div>
 
@@ -43,7 +47,11 @@
 					class="d-flex flex-row align-items-end justify-content-end"
 				>
 					<div class="d-flex flex-column align-items-end mx-3">
-						<button class="close-button btn-minimal">end</button>
+						<div class="d-flex" style="gap: 0.5rem;">
+						   <button class="minimize-button btn-minimal">hide</button>
+						   <button class="close-button btn-minimal">end</button>
+						</div>
+
 					</div>
 				</div>
 
@@ -70,7 +78,8 @@
 				<div
 					class="d-flex flex-row align-items-end justify-content-end"
 				>
-					<div class="d-flex flex-column align-items-end mx-3">
+					<div class="d-flex" style="gap: 0.5rem;">
+						<button class="minimize-button btn-minimal">hide</button>
 						<button class="close-button btn-minimal">end</button>
 					</div>
 				</div>
@@ -116,6 +125,13 @@
 				const loadingMessage =
 					document.getElementById("loading-message");
 				loadingMessage.textContent = message;
+			});
+
+			const minimizeButtons = document.querySelectorAll(".minimize-button");
+			minimizeButtons.forEach((minimizeButton) => {
+				minimizeButton.addEventListener("click", () => {
+					ipcRenderer.send("minimize-window");
+				});
 			});
 
 			ipcRenderer.on("komorebiStatus", (event, message) => {
