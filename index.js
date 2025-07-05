@@ -202,6 +202,13 @@ ipcMain.on('retry', () => {
     startLoadingKomorebi();
 });
 
+ipcMain.on('minimize-window', () => {
+	if (global.win) {
+		global.win.minimize();
+	}
+});
+
+
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit()
 })
