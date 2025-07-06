@@ -2,11 +2,17 @@ const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const { spawn, exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 const logFileName = './logs/waitForMeKomorebi.log';
 let startupAttempts = 0;
 let maxStartupAttempts = 8;
 
+/**
+ * Creates and configures the main Electron window
+ * Sets up window properties, loads HTML content, and sends initial messages data
+ * Please modify window properties for yourself.
+ */
 const createWindow = () => {
 
     const win = new BrowserWindow({
@@ -26,6 +32,12 @@ const createWindow = () => {
     win.setMenu(null)
     win.loadURL(`file://${__dirname}/index.html`)
 
+    // Send messages data when the window content is loaded
+    win.webContents.once('dom-ready', () => {
+        const messages = loadMessages();
+        win.webContents.send('messagesData', messages);
+    });
+
     // For debugging
     // win.webContents.openDevTools({ mode: 'detach' })
 
@@ -33,6 +45,11 @@ const createWindow = () => {
 
 }
 
+/**
+ * Checks if a specific process is running on the system
+ * @param {string} query - The process name to search for
+ * @returns {Promise<boolean>} - True if the process is running, false otherwise
+ */
 async function isRunning(query) {
 
     let platform = process.platform;
@@ -56,10 +73,18 @@ async function isRunning(query) {
     });
 }
 
+/**
+ * Checks if both Komorebi and Komorebi-bar processes are running
+ * @returns {Promise<boolean>} - True if both processes are running, false otherwise
+ */
 async function checkIfKomorebiIsRunning() {
     return await isRunning('komorebi.exe') && isRunning('komorebi-bar.exe');
 }
 
+/**
+ * Gradually fades out the main window by reducing opacity over time
+ * @returns {Promise<void>} - Resolves when the fade out animation is complete
+ */
 async function fadeOutWindow() {
 
     return new Promise((resolve) => {
@@ -87,6 +112,10 @@ async function fadeOutWindow() {
     });
 }
 
+/**
+ * Starts the Komorebi window manager process and handles its lifecycle
+ * Monitors the process, checks if it starts successfully, and retries up to the max retry limit.
+ */
 async function startLoadingKomorebi() {
 
     const komorebi = spawn('komorebic', ['start', '--bar', '--whkd']);
@@ -150,14 +179,25 @@ async function startLoadingKomorebi() {
 
 }
 
+/**
+ * Clears the contents of the log file
+ */
 async function clearLog() {
     fs.writeFileSync(logFileName, '', { flag: 'w' });
 }
 
+/**
+ * Appends a message to the log file with a log level
+ * @param {string} message - The message to log
+ * @param {string} type - The log level (INFO, ERROR, WARN, etc.)
+ */
 async function log(message, type) {
     fs.appendFileSync(logFileName, `[${type}] ${message}\n`);
 }
 
+/**
+ * Updates the "I'm starting up..." message continuously with trailing dots
+ */
 function setLoadingMessage() {
 
     let trailingDots = 1;
@@ -167,6 +207,7 @@ function setLoadingMessage() {
         if (trailingDots > 2) {
             trailingDots = 0;
         }
+
         trailingDots = trailingDots + 1
 
         const message = "I'm starting up " + ".".repeat(trailingDots)
@@ -181,6 +222,39 @@ function setLoadingMessage() {
     }, 400)
 
 }
+
+/**
+ * Loads configuration messages from MESSAGES.json file
+ * Falls back to OS username if no name is specified in the config
+ * @returns {Object} - Object containing name and welcome_message properties
+ */
+const loadMessages = () => {
+
+    try {
+
+        const messagesPath = path.join(__dirname, 'MESSAGES.json');
+        const messagesData = fs.readFileSync(messagesPath, 'utf8');
+        const messages = JSON.parse(messagesData);
+        
+        // If no name is set in the JSON file, use the OS username
+        if (!messages.name || messages.name.trim() === '') {
+            messages.name = os.userInfo().username;
+        }
+        
+        return messages;
+
+    } catch (error) {
+
+        console.error('Failed to load messages:', error);
+
+        return {
+            name: os.userInfo().username, // Picks it up from your OS.
+            welcome_message: "Bienvenue"
+        };
+
+    }
+
+};
 
 app.whenReady().then(() => {
 
@@ -201,6 +275,22 @@ ipcMain.on('showLogs', () => {
 ipcMain.on('retry', () => {
     startLoadingKomorebi();
 });
+
+ipcMain.on('minimizeWindow', () => {
+    
+    if (global.win) {
+        global.win.minimize();
+    }
+
+})
+
+ipcMain.on('closeWindow', () => {
+    
+    if (global.win) {
+        global.win.close();
+    }
+
+})
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit()

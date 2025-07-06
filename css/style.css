@@ -2,6 +2,19 @@
 	color: lightcoral;
 }
 
+.close-button::before {
+	content: "end";
+}
+
+.close-button:hover::before {
+	content: "goodbye :(";
+}
+
+.minimize-button::before {
+    color: lightcoral;
+    content: "hide";
+}
+
 .cat-gif {
 	width: 10rem;
 }
