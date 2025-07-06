@@ -1,19 +1,12 @@
 .close-button {
 	color: lightcoral;
-	white-space: nowrap;
+	font-size: 0.9rem;
 }
 
 .minimize-button {
 	color: lightcoral; 
-	font-size: 0.9rem; /* optional */
-	padding: 0 2px;
-	transition: transform 0.2s ease-in-out, opacity 0.2s ease-in-out;
-}
-
-.minimize-button:hover {
-	transform: translateY(-2px);
-	opacity: 1;
-	transition: transform 0.2s ease;
+	font-size: 0.9rem;
+	transition: transform 0.2s;
 }
 
 .cat-gif {
@@ -55,35 +48,3 @@ a,
 .non-draggable {
 	-webkit-app-region: no-drag;
 }
-
-@keyframes fadeInOut {
-	0% {
-		opacity: 1;
-		transform: scale(1);
-	}
-	50% {
-		opacity: 0.5;
-		transform: scale(1.05);
-	}
-	100% {
-		opacity: 1;
-		transform: scale(1);
-	}
-}
-
-.fade-text {
-	opacity: 0;
-	transition: opacity 0.25s ease;
-}
-
-@keyframes goodbyeBounce {
-	0% { transform: scale(1); }
-	30% { transform: scale(1.1); }
-	100% { transform: scale(1); }
-}
-
-.close-button.goodbye-anim {
-	animation: goodbyeBounce 0.8s ease-in-out;
-	animation-fill-mode: forwards;
-}
-
