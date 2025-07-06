@@ -248,11 +248,6 @@ const loadConfig = () => {
             log(`Loaded config file from: ${userConfigPath}`, 'INFO');
             log(`Config data: ${JSON.stringify(config, null, 4)}`, 'DEBUG');
 
-            // If no name is set, use OS username
-            if (!config.name || config.name.trim() === '') {
-                config.name = os.userInfo().username;
-            }
-
             return config;
 
         }
