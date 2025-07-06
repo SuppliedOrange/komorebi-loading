@@ -10,7 +10,7 @@ let maxStartupAttempts = 8;
 
 /**
  * Creates and configures the main Electron window
- * Sets up window properties, loads HTML content, and sends initial messages data
+ * Sets up window properties, loads HTML content, and sends initial config data
  * Please modify window properties for yourself.
  */
 const createWindow = () => {
@@ -32,10 +32,10 @@ const createWindow = () => {
     win.setMenu(null)
     win.loadURL(`file://${__dirname}/index.html`)
 
-    // Send messages data when the window content is loaded
+    // Send config data when the window content is loaded
     win.webContents.once('dom-ready', () => {
-        const messages = loadMessages();
-        win.webContents.send('messagesData', messages);
+        const config = loadConfig();
+        win.webContents.send('configData', config);
     });
 
     // For debugging
@@ -224,36 +224,69 @@ function setLoadingMessage() {
 }
 
 /**
- * Loads configuration messages from MESSAGES.json file
+ * Loads configuration from config.json file
+ * First checks AppData folder, creates it if it doesn't exist
  * Falls back to OS username if no name is specified in the config
  * @returns {Object} - Object containing name and welcome_message properties
  */
-const loadMessages = () => {
+const loadConfig = () => {
 
+    // Use APPDATA environment variable directly to match the batch file
+    const appDataPath = path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'komorebi-loading');
+    const userConfigPath = path.join(appDataPath, 'config.json');
+    
     try {
 
-        const messagesPath = path.join(__dirname, 'MESSAGES.json');
-        const messagesData = fs.readFileSync(messagesPath, 'utf8');
-        const messages = JSON.parse(messagesData);
+        // Try to load from user's AppData first
+
+        if (fs.existsSync(userConfigPath)) {
+
+            const configData = fs.readFileSync(userConfigPath, 'utf8');
+            const config = JSON.parse(configData);
+
+            log(`Loaded config file from: ${userConfigPath}`, 'INFO');
+            log(`Config data: ${JSON.stringify(config, null, 4)}`, 'DEBUG');
+
+            // If no name is set, use OS username
+            if (!config.name || config.name.trim() === '') {
+                config.name = os.userInfo().username;
+            }
+
+            return config;
+
+        }
+
+        const defaultConfig = {
+            name: "",
+            welcome_message: "Bienvenue"
+        };
         
-        // If no name is set in the JSON file, use the OS username
-        if (!messages.name || messages.name.trim() === '') {
-            messages.name = os.userInfo().username;
+        // Create AppData directory if it doesn't exist
+        if (!fs.existsSync(appDataPath)) {
+            fs.mkdirSync(appDataPath, { recursive: true });
         }
         
-        return messages;
+        // Create user config file
+        fs.writeFileSync(userConfigPath, JSON.stringify(defaultConfig, null, 4));
+        log(`Created config file at: ${userConfigPath}`, 'INFO');
+        
+        // If no name is set, use OS username
+        if (!defaultConfig.name || defaultConfig.name.trim() === '') {
+            defaultConfig.name = os.userInfo().username;
+        }
+
+        return defaultConfig;
 
     } catch (error) {
 
-        console.error('Failed to load messages:', error);
+        log(`Failed to load config: ${error}`, 'ERROR');
 
         return {
-            name: os.userInfo().username, // Picks it up from your OS.
+            name: os.userInfo().username,
             welcome_message: "Bienvenue"
         };
 
     }
-
 };
 
 app.whenReady().then(() => {

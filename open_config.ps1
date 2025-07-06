@@ -1,0 +1,1 @@
+notepad "$env:APPDATA\komorebi-loading\config.json"

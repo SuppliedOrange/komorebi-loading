@@ -189,17 +189,17 @@
              * Handles custom strings to inject into the HTML
              * Updates the welcome message and user name
              */
-			ipcRenderer.on("messagesData", (event, messages) => {
+			ipcRenderer.on("configData", (event, config) => {
 
 				const welcomeElement = document.getElementById("welcome-message");
 				const nameElement = document.getElementById("user-name");
 				
 				if (welcomeElement) {
-					welcomeElement.textContent = messages.welcome_message;
+					welcomeElement.textContent = config.welcome_message || "Welcome";
 				}
 
 				if (nameElement) {
-					nameElement.textContent = messages.name;
+					nameElement.textContent = config.name || "";
 				}
 
 			});
