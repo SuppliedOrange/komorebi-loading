@@ -231,7 +231,8 @@ function setLoadingMessage() {
  */
 const loadConfig = () => {
 
-    // Use APPDATA environment variable directly to match the batch file
+    // Routes to <windows-drive>:\Users\<username>\AppData\Roaming\komorebi-loading
+
     const appDataPath = path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'komorebi-loading');
     const userConfigPath = path.join(appDataPath, 'config.json');
     
