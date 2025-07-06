@@ -1,21 +1,27 @@
 <!DOCTYPE html>
+
 <html lang="en">
+
 	<head>
 		<meta charset="UTF-8" />
 		<link rel="stylesheet" href="./css/bootstrap.min.css" />
 		<link rel="stylesheet" href="./css/style.css" />
-		<script src="./js/index.js"></script>
 		<title>WaitForMeKomorebi</title>
 	</head>
+
 	<body data-bs-theme="dark" style="background-color: #3a2425">
+
 		<div class="tab-content container py-4">
+
 			<!-- Loading Tab -->
 			<div id="loading-tab" class="tab-pane active show">
+
 				<div
 					class="d-flex flex-row align-items-end justify-content-end"
 				>
-					<div class="d-flex flex-column align-items-end mx-3">
-						<button class="close-button btn-minimal">end</button>
+					<div class="d-flex flex-row align-items-end gap-2 mx-3">
+						<button class="close-button btn-minimal"></button>
+                        <button class="minimize-button btn-minimal"></button>
 					</div>
 				</div>
 
@@ -39,92 +45,180 @@
 
 			<!-- Success Tab -->
 			<div id="success-tab" class="tab-pane">
+
 				<div
 					class="d-flex flex-row align-items-end justify-content-end"
 				>
-					<div class="d-flex flex-column align-items-end mx-3">
-						<button class="close-button btn-minimal">end</button>
+					<div class="d-flex flex-row align-items-end gap-2 mx-3">
+
+						<button class="close-button btn-minimal"></button>
+                        <button class="minimize-button btn-minimal"></button>
+
 					</div>
+
 				</div>
 
 				<div
 					class="d-flex flex-column align-items-center justify-content-center min-vh-75"
 				>
 					<div class="text-center">
+
 						<img
 							class="cat-gif mb-4"
 							src="./assets/cat.gif"
 							alt="cute pixel art cat playing around"
 						/>
+
 						<p class="status-text mb-4">
 							Komorebi started successfully
 						</p>
-						<h1 class="display-4 mt-2 mb-2">Bienvenue</h1>
-						<h3 class="text-muted">Doog</h3>
+
+						<h1 class="display-4 mt-2 mb-2" id="welcome-message"></h1>
+						<h3 class="text-muted" id="user-name"></h3>
+
 					</div>
+
 				</div>
 			</div>
 
 			<!-- Error Tab -->
 			<div id="error-tab" class="tab-pane">
+
 				<div
 					class="d-flex flex-row align-items-end justify-content-end"
 				>
-					<div class="d-flex flex-column align-items-end mx-3">
-						<button class="close-button btn-minimal">end</button>
+
+					<div class="d-flex flex-row align-items-end gap-2 mx-3">
+						<button class="close-button btn-minimal"></button>
+                        <button class="minimize-button btn-minimal"></button>
 					</div>
+
 				</div>
 
 				<div
 					class="d-flex flex-column align-items-center justify-content-center min-vh-75"
 				>
+
 					<div class="text-center">
+
 						<h1 class="display-5 text-danger mb-3">
 							Oops! Something went wrong
 						</h1>
+
 						<p class="status-text mb-4">Failed to start Komorebi</p>
+
 						<div
 							class="d-flex flex-row align-items-center justify-content-around mt-2"
 						>
+
 							<button id="retry-button" class="btn-minimal">
 								Try again
 							</button>
+
 							<button id="logs-button" class="btn-minimal">
 								Show logs
 							</button>
+
 						</div>
+
 					</div>
+
 				</div>
+
 			</div>
 		</div>
 
 		<script>
+
 			const { ipcRenderer } = require("electron");
 
+			/**
+			 * Switches between different bootstrap tabs
+			 * @param {string} tabName - The name of the tab to switch to (without the '-tab' suffix)
+             * @example switchTab("success");
+			 */
 			const switchTab = (tabName) => {
+
 				document.querySelectorAll(".tab-pane").forEach((tab) => {
 					tab.classList.remove("active", "show");
 				});
 
 				const targetTab = document.getElementById(`${tabName}-tab`);
+
 				if (targetTab) {
 					targetTab.classList.add("active", "show");
 				}
+
 			};
 
+            /**
+             * Initializes event listeners for all buttons in the application
+             */
+            const initializeButtons = () => {
+
+                document.querySelectorAll(".close-button").forEach((button) => {
+
+                    button.onclick = () => {
+                        ipcRenderer.send("closeWindow");
+                    };
+
+                });
+
+                // Initialize minimize buttons
+
+                document.querySelectorAll(".minimize-button").forEach((button) => {
+
+                    button.onclick = () => {
+                        ipcRenderer.send("minimizeWindow");
+                    };
+
+                });
+
+            };
+
+            /**
+             * Sets up the loading message with animated dots
+             */
 			ipcRenderer.on("loadingMessage", (event, message) => {
 				const loadingMessage =
 					document.getElementById("loading-message");
 				loadingMessage.textContent = message;
 			});
 
+            /**
+             * Handles custom strings to inject into the HTML
+             * Updates the welcome message and user name
+             */
+			ipcRenderer.on("configData", (event, config) => {
+
+				const welcomeElement = document.getElementById("welcome-message");
+				const nameElement = document.getElementById("user-name");
+				
+				if (welcomeElement) {
+					welcomeElement.textContent = config.welcome_message || "Welcome";
+				}
+
+				if (nameElement) {
+					nameElement.textContent = config.name || "";
+				}
+
+			});
+
+            /**
+             * Handles the status of the Komorebi process
+             * Switches to the appropriate tab based on the status
+             */
 			ipcRenderer.on("komorebiStatus", (event, message) => {
+
 				switch (message.status) {
+
 					case true:
+
 						switchTab("success");
 						break;
 
 					case false:
+
 						switchTab("error");
 
 						document.getElementById("logs-button").onclick = () => {
@@ -143,7 +237,13 @@
 					default:
 						break;
 				}
+
 			});
+
+            document.addEventListener("DOMContentLoaded", () => {
+                initializeButtons();
+            });
+
 		</script>
 	</body>
 </html>

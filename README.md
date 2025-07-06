@@ -14,6 +14,14 @@
 - Has logs (kinda)
 - Cute
 
+## Config
+
+It says "Bienvenue {Your OS username}" by default once it starts. You can customize this by editing the configuration file at:
+
+> `%APPDATA%/komorebi-loading/config.json`
+
+You can just use the command from [open_config.bat](./open_config.bat) or [open_config.ps1](./open_config.ps1) to open it up.
+
 ## Installing pre-requisites
 
 Use this command in the directory to install dependencies
