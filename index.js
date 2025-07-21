@@ -58,6 +58,7 @@ const createWindow = () => {
       title: "WaitForMeKomorebi",
       titleBarStyle: 'hidden',
       fullscreenable: false,
+      skipTaskbar: true,
       webPreferences: {
         nodeIntegration: true,
         contextIsolation: false,
