@@ -10,7 +10,7 @@ let maxStartupAttempts = 8;
 
 const defaultConfig = {
 
-    name: "",
+    name: null,
     welcome_message: "Bienvenue",
 
     // Recreated from runnin the command "komorebic start --help"
@@ -90,24 +90,29 @@ const createWindow = () => {
 async function isRunning(query) {
 
     let platform = process.platform;
-    let cmd = '';
 
-    switch (platform) {
-        case 'win32': cmd = `tasklist`; break;
-        case 'darwin': cmd = `ps -ax | grep ${query}`; break;
-        case 'linux': cmd = `ps -A`; break;
-        default: break;
+    if (platform !== 'win32') {
+
+        throw new Error("Komorebi at the moment runs on Windows only and your OS is not supported.");
+
     }
 
     return new Promise((resolve, reject) => {
-        exec(cmd, (err, stdout, stderr) => {
+
+        exec('tasklist', (err, stdout, stderr) => {
+
             if (err) {
+
                 reject(err);
+
             } else {
+                
                 resolve(stdout.toLowerCase().indexOf(query.toLowerCase()) > -1);
             }
         });
+
     });
+
 }
 
 /**
@@ -116,20 +121,28 @@ async function isRunning(query) {
  */
 async function checkIfKomorebiIsRunning(config) {
 
-    const isKomorebiRunning = await isRunning('komorebi.exe');
+    try {
 
-    if (config.launch_options.bar) {
+        const isKomorebiRunning = await isRunning('komorebi.exe');
 
-        const isKomorebiBarRunning = await isRunning('komorebi-bar.exe');
-        return isKomorebiRunning && isKomorebiBarRunning;
+        if (config.launch_options.bar) {
+
+            const isKomorebiBarRunning = await isRunning('komorebi-bar.exe');
+            return isKomorebiRunning && isKomorebiBarRunning;
+
+        } else {
+
+            return isKomorebiRunning;
+
+        }
+
+    } catch (err) {
+
+        await log(`Error checking if Komorebi is running: ${err}`, 'ERROR');
+        return false;
 
     }
-    else {
 
-        return isKomorebiRunning;
-
-    }
-    
 }
 
 /**
@@ -139,8 +152,7 @@ async function checkIfKomorebiIsRunning(config) {
 async function fadeOutWindow() {
 
     return new Promise((resolve) => {
-
-        const duration = 500; // 3 seconds
+        const duration = 500; // 0.5 seconds
         const steps = 60;
         const fadeInterval = duration / steps;
         const fadeStep = 1 / steps;
@@ -156,7 +168,9 @@ async function fadeOutWindow() {
                 resolve();
             }
 
-            win.setOpacity(Math.max(0, opacity));
+            if (global.win) {
+                global.win.setOpacity(Math.max(0, opacity));
+            }
 
         }, fadeInterval);
 
@@ -283,7 +297,15 @@ async function clearLog() {
  * @param {string} type - The log level (INFO, ERROR, WARN, etc.)
  */
 async function log(message, type) {
-    fs.appendFileSync(logFileName, `[${type}] ${message}\n`);
+
+    try {
+
+        fs.appendFileSync(logFileName, `[${type}] ${message}\n`);
+
+    } catch (err) {
+        console.error('Failed to write to log file:', err);
+    }
+
 }
 
 /**
@@ -304,10 +326,20 @@ function setLoadingMessage() {
         const message = "I'm starting up " + ".".repeat(trailingDots)
 
         try {
-            win.webContents.send('loadingMessage', message)
+
+            if (global.win) {
+                global.win.webContents.send('loadingMessage', message)
+            }
+            else {
+                log('Attempted to send `loadingMessage` through webcontents but global.win is not defined', 'ERROR');
+            }
+
         }
         catch (e) {
+
+            // Window is prolly gone.
             process.exit();
+
         }
 
     }, 400)
@@ -373,8 +405,10 @@ const loadConfig = () => {
         log(`Created config file at: ${userConfigPath}`, 'INFO');
         
         // If no name is set, use OS username
-        if (!defaultConfig.name || defaultConfig.name.trim() === '') {
+        if (!defaultConfig.name) {
+
             defaultConfig.name = os.userInfo().username;
+
         }
 
         return defaultConfig;
