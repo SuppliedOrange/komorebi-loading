@@ -336,7 +336,7 @@ function setLoadingMessage() {
                 global.win.webContents.send('loadingMessage', message)
             }
             else {
-                log('Attempted to send `loadingMessage` through webcontents but global.win is not defined', 'ERROR');
+                log('Attempted to send `loadingMessage` through webContents but global.win is not defined', 'ERROR');
             }
 
         }
