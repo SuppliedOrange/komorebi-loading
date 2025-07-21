@@ -22,6 +22,41 @@ It says "Bienvenue {Your OS username}" by default once it starts. You can custom
 
 You can just use the command from [open_config.bat](./open_config.bat) or [open_config.ps1](./open_config.ps1) to open it up.
 
+## Advanced Launch Options
+
+You can configure additional Komorebi launch options directly in your `config.json` file with these fields.
+
+Relevant fields:
+
+```json
+{
+  "launch_options": {
+
+    "bar": true, // Start komorebi bar
+
+    "whkd": true, // Start the windows hotkey daemon (whkd)
+
+    "masir": true,// Start focus-follows-mouse daemon (masir)
+
+    "clean_state": false, // Whether or not to start fresh instead of using the previous dumped state temp file.
+
+    "await_configuration": false, // Wait for 'komorebic complete-configuration' to be sent before processing events
+
+    "tcp_port": null, // Start a TCP server on the given port to allow the direct sending of SocketMessages
+
+    "config_file_path": null // Path to a static komorebi configuration JSON file
+
+  },
+
+  "custom_args": [
+    // I wouldn't put anything here unless there's a new update to the launch config
+    // that the current one doesn't cover.
+    // eg. "--ahk"
+  ]
+
+}
+```
+
 ## Installing pre-requisites
 
 Use this command in the directory to install dependencies

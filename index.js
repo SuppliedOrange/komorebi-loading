@@ -8,6 +8,43 @@ const logFileName = './logs/waitForMeKomorebi.log';
 let startupAttempts = 0;
 let maxStartupAttempts = 8;
 
+const defaultConfig = {
+
+    name: "",
+    welcome_message: "Bienvenue",
+
+    // Recreated from runnin the command "komorebic start --help"
+    /**
+        -c, --config <CONFIG>      Path to a static configuration JSON file
+        -a, --await-configuration  Wait for 'komorebic complete-configuration' to be sent before processing events
+        -t, --tcp-port <TCP_PORT>  Start a TCP server on the given port to allow the direct sending of SocketMessages
+            --whkd                 Start whkd in a background process
+            --ahk                  Start autohotkey configuration file
+            --bar                  Start komorebi-bar in a background process
+            --masir                Start masir in a background process for focus-follows-mouse
+            --clean-state          Do not attempt to auto-apply a dumped state temp file from a previously running instance of komorebi
+        -h, --help                 Print help
+        */
+
+    launch_options: {
+
+        bar: true,
+        whkd: true,
+        masir: true,
+        clean_state: false,
+        await_configuration: false,
+
+        tcp_port: null,
+        config_file_path: null,
+        
+    },
+    
+    custom_args: [
+        // You can add custom args if you want i guess
+    ],
+
+};
+
 /**
  * Creates and configures the main Electron window
  * Sets up window properties, loads HTML content, and sends initial config data
@@ -118,15 +155,55 @@ async function fadeOutWindow() {
  */
 async function startLoadingKomorebi() {
 
-    const komorebi = spawn('komorebic', ['start', '--bar', '--whkd']);
+    const config = loadConfig();
+
+    let launchOptions = ["start"];
+
+    if (config.launch_options.bar) {
+        launchOptions.push('--bar');
+    }
+
+    if (config.launch_options.whkd) {
+        launchOptions.push('--whkd');
+    }
+
+    if (config.launch_options.masir) {
+        launchOptions.push('--masir');
+    }
+
+    if (config.launch_options.clean_state) {
+        launchOptions.push('--clean-state');
+    }
+
+    if (config.launch_options.await_configuration) {
+        launchOptions.push('--await-configuration');
+    }
+
+    if (config.launch_options.tcp_port !== 0 && config.launch_options.tcp_port !== null) {
+        launchOptions.push(`--tcp-port=${config.launch_options.tcp_port.toString()}`);
+    }
+
+    if (config.launch_options.config_file_path) {
+        launchOptions.push(`--config=${config.launch_options.config_file_path.toString()}`);
+    }
+
+    if (config.custom_args && Array.isArray(config.custom_args)) {
+
+        for (const arg of config.custom_args) {
+            if (arg) launchOptions.push(arg.toString());
+        }
+
+    }
+
+    log(`Starting Komorebi with options: komorebic ${launchOptions.join(' ')}`, 'INFO');
+
+    const komorebi = spawn('komorebic', launchOptions);
 
     komorebi.on('error', (err) => {
-        console.log(err)
         log(err.toString(), 'ERROR');
     });
 
     komorebi.on('data', (data) => {
-        console.log(data)
         log(data.toString(), 'INFO');
     });
 
@@ -245,17 +322,32 @@ const loadConfig = () => {
             const configData = fs.readFileSync(userConfigPath, 'utf8');
             const config = JSON.parse(configData);
 
+            // If some fields are missing, fill with defaults
+            for (const key in defaultConfig) {
+
+                if (!config.hasOwnProperty(key)) {
+                    config[key] = defaultConfig[key];
+                }
+
+                else if (key === 'launch_options' && typeof config[key] !== 'object') {
+                    config[key] = defaultConfig[key];
+                }
+
+                else if (key === 'custom_args' && !Array.isArray(config[key])) {
+                    config[key] = defaultConfig[key];
+                }
+
+            }
+
+            // Re-update in case some fields were missing
+            fs.writeFileSync(userConfigPath, JSON.stringify(config, null, 4));
+
             log(`Loaded config file from: ${userConfigPath}`, 'INFO');
             log(`Config data: ${JSON.stringify(config, null, 4)}`, 'DEBUG');
 
             return config;
 
         }
-
-        const defaultConfig = {
-            name: "",
-            welcome_message: "Bienvenue"
-        };
         
         // Create AppData directory if it doesn't exist
         if (!fs.existsSync(appDataPath)) {
