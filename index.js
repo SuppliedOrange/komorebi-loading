@@ -12,6 +12,7 @@ const defaultConfig = {
 
     name: null,
     welcome_message: "Bienvenue",
+    skipTaskbar: false, // Whether or not to make an icon show up in the task bar for this application.
 
     // Recreated from runnin the command "komorebic start --help"
     /**
@@ -52,13 +53,16 @@ const defaultConfig = {
  */
 const createWindow = () => {
 
+    const config = loadConfig();
+
     const win = new BrowserWindow({
       width: 350,
       height: 400,
       title: "WaitForMeKomorebi",
       titleBarStyle: 'hidden',
       fullscreenable: false,
-      skipTaskbar: true,
+      skipTaskbar: config.skipTaskbar,
+      icon: path.join(__dirname, 'assets', 'cat.ico'),
       webPreferences: {
         nodeIntegration: true,
         contextIsolation: false,

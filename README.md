@@ -44,7 +44,9 @@ Relevant fields:
 
     "tcp_port": null, // Start a TCP server on the given port to allow the direct sending of SocketMessages
 
-    "config_file_path": null // Path to a static komorebi configuration JSON file
+    "config_file_path": null, // Path to a static komorebi configuration JSON file
+
+    "skipTaskbar": false // Whether or not to show this app in the taskbar when it's active, shows by default.
 
   },
 
