@@ -114,8 +114,22 @@ async function isRunning(query) {
  * Checks if both Komorebi and Komorebi-bar processes are running
  * @returns {Promise<boolean>} - True if both processes are running, false otherwise
  */
-async function checkIfKomorebiIsRunning() {
-    return await isRunning('komorebi.exe') && isRunning('komorebi-bar.exe');
+async function checkIfKomorebiIsRunning(config) {
+
+    const isKomorebiRunning = await isRunning('komorebi.exe');
+
+    if (config.launch_options.bar) {
+
+        const isKomorebiBarRunning = await isRunning('komorebi-bar.exe');
+        return isKomorebiRunning && isKomorebiBarRunning;
+
+    }
+    else {
+
+        return isKomorebiRunning;
+
+    }
+    
 }
 
 /**
@@ -211,7 +225,7 @@ async function startLoadingKomorebi() {
 
         if (code === 0) {
 
-            if ( await checkIfKomorebiIsRunning() ) {
+            if ( await checkIfKomorebiIsRunning(config) ) {
 
                 log('Komorebi started successfully', 'INFO');
                 
