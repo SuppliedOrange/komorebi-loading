@@ -1,0 +1,31 @@
+name: Build Windows Release
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-windows:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm install
+        
+      - name: Build Windows executable
+        run: npx @electron/packager . komorebi-loading --out=dist --icon=assets/cat.ico --overwrite --platform=win32
+        
+      - name: Upload Windows build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: komorebi-loading-win
+          path: dist/
