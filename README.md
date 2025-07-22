@@ -28,33 +28,41 @@ You can configure additional Komorebi launch options directly in your `config.js
 
 Relevant fields:
 
-```json
+```jsonc
 {
-  "launch_options": {
+	"launch_options": {
 
-    "bar": true, // Start komorebi bar
+		// Start komorebi bar
+		"bar": true, 
+	
+	 	// Start the windows hotkey daemon (whkd)
+		"whkd": true, 
+	
+		// Start focus-follows-mouse daemon (masir)
+		"masir": true,
+	
+		// Whether or not to start fresh instead of using the previous dumped state temp file.
+		"clean_state": false,
+	
+	 	// Wait for 'komorebic complete-configuration' to be sent before processing events
+		"await_configuration": false,
+	
+		// Start a TCP server on the given port to allow the direct sending of SocketMessages
+		"tcp_port": null, 
+	
+		// Path to a static komorebi configuration JSON file
+		"config_file_path": null, 
+	
+		// Whether or not to show this app in the taskbar when it's active, shows by default.
+		"skipTaskbar": false 
 
-    "whkd": true, // Start the windows hotkey daemon (whkd)
+	},
 
-    "masir": true,// Start focus-follows-mouse daemon (masir)
-
-    "clean_state": false, // Whether or not to start fresh instead of using the previous dumped state temp file.
-
-    "await_configuration": false, // Wait for 'komorebic complete-configuration' to be sent before processing events
-
-    "tcp_port": null, // Start a TCP server on the given port to allow the direct sending of SocketMessages
-
-    "config_file_path": null, // Path to a static komorebi configuration JSON file
-
-    "skipTaskbar": false // Whether or not to show this app in the taskbar when it's active, shows by default.
-
-  },
-
-  "custom_args": [
-    // I wouldn't put anything here unless there's a new update to the launch config
-    // that the current one doesn't cover.
-    // eg. "--ahk"
-  ]
+	"custom_args": [
+		// I wouldn't put anything here unless there's a new update to the launch config
+		// that the current one doesn't cover.
+		// eg. "--ahk"
+	]
 
 }
 ```
