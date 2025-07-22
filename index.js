@@ -48,7 +48,9 @@ const defaultConfig = {
 
 /**
  * Creates and configures the main Electron window
- * Sets up window properties, loads HTML content, and sends initial config data
+ * Sets up window properties, loads HTML content, and sends initial config data.
+ * The window is created with `show: false` to prevent showing uninitialized content before it loads;
+ * it is then shown in the 'ready-to-show' event.
  * Please modify window properties for yourself.
  */
 const createWindow = () => {
@@ -63,6 +65,7 @@ const createWindow = () => {
       fullscreenable: false,
       skipTaskbar: config.skipTaskbar,
       icon: path.join(__dirname, 'assets', 'cat.ico'),
+      show: false,
       webPreferences: {
         nodeIntegration: true,
         contextIsolation: false,
@@ -73,6 +76,10 @@ const createWindow = () => {
     win.setAlwaysOnTop(true, 'screen-saver', 1);
     win.setMenu(null)
     win.loadURL(`file://${__dirname}/index.html`)
+
+    win.once('ready-to-show', () => {
+        win.show();
+    });
 
     // Send config data when the window content is loaded
     win.webContents.once('dom-ready', () => {
