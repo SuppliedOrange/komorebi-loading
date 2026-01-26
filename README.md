@@ -93,6 +93,30 @@ Use the following command in the directory to build a binary for your system.
 npx @electron/packager . komorebi-loading --out=dist --icon=assets/cat.ico --overwrite
 ```
 
+## Automated Releases
+
+This project uses GitHub Actions to automatically build and release the application.
+
+### Automatic Releases
+
+- **On tag push**: Push a version tag (e.g., `v1.0.0`) to trigger a release
+  ```console
+  git tag v1.0.0
+  git push origin v1.0.0
+  ```
+
+- **Manual trigger**: Go to Actions → "Build and Release" → "Run workflow"
+  - You can specify a custom version tag or use the default "dev-build"
+
+- **Test branch builds**: Pushes to `copilot/test-release-builds` branch create pre-release builds for testing
+
+### Release Contents
+
+Each release includes:
+- Windows executable packaged as a ZIP file
+- Release notes with installation instructions
+- Link to the commit that was built
+
 ## komorebi.json ignore rule
 
 You will need to make komorebi ignore this application, so it's advised to set this rule in your `komorebi.json` file first.
