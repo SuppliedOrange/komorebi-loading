@@ -2,7 +2,7 @@ name: Build and Release
 
 on:
   push:
-    branches: [main, copilot/test-release-builds]
+    branches: [main]
     tags:
       - 'v*.*.*'
   workflow_dispatch:
