@@ -302,9 +302,7 @@ async function startLoadingKomorebi() {
 function ensureLogDirectoryExists() {
     try {
         const logDir = path.dirname(logFileName);
-        if (!fs.existsSync(logDir)) {
-            fs.mkdirSync(logDir, { recursive: true });
-        }
+        fs.mkdirSync(logDir, { recursive: true });
     } catch (err) {
         console.error('Failed to create log directory:', err);
     }
