@@ -300,9 +300,13 @@ async function startLoadingKomorebi() {
  * Ensures the logs directory exists, creating it if necessary
  */
 function ensureLogDirectoryExists() {
-    const logDir = path.dirname(logFileName);
-    if (!fs.existsSync(logDir)) {
-        fs.mkdirSync(logDir, { recursive: true });
+    try {
+        const logDir = path.dirname(logFileName);
+        if (!fs.existsSync(logDir)) {
+            fs.mkdirSync(logDir, { recursive: true });
+        }
+    } catch (err) {
+        console.error('Failed to create log directory:', err);
     }
 }
 
@@ -310,8 +314,12 @@ function ensureLogDirectoryExists() {
  * Clears the contents of the log file
  */
 async function clearLog() {
-    ensureLogDirectoryExists();
-    fs.writeFileSync(logFileName, '', { flag: 'w' });
+    try {
+        ensureLogDirectoryExists();
+        fs.writeFileSync(logFileName, '', { flag: 'w' });
+    } catch (err) {
+        console.error('Failed to clear log file:', err);
+    }
 }
 
 /**
