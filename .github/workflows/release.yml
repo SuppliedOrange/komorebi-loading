@@ -107,6 +107,6 @@ jobs:
           files: |
             ${{ steps.app_info.outputs.app_name }}-${{ steps.version.outputs.version }}-win32.zip
           draft: false
-          prerelease: ${{ github.ref_name == 'copilot/test-release-builds' || github.event_name == 'workflow_dispatch' }}
+          prerelease: ${{ github.event_name == 'workflow_dispatch' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
