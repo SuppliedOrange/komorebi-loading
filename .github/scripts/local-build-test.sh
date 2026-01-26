@@ -2,6 +2,7 @@
 
 # Local Build Test Script
 # This script simulates the GitHub Actions workflow locally
+# Run this script from the repository root directory
 
 set -e
 

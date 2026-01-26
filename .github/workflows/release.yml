@@ -31,8 +31,18 @@ jobs:
       - name: Install dependencies
         run: npm install
         
+      - name: Get app name and version
+        id: app_info
+        run: |
+          APP_NAME=$(node -p "require('./package.json').name")
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          echo "app_name=$APP_NAME" >> $GITHUB_OUTPUT
+          echo "package_version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
+          echo "App name: $APP_NAME"
+          echo "Package version: $PACKAGE_VERSION"
+        
       - name: Build Windows executable
-        run: npx @electron/packager . komorebi-loading --out=dist --icon=assets/cat.ico --overwrite --platform=win32
+        run: npx @electron/packager . ${{ steps.app_info.outputs.app_name }} --out=dist --icon=assets/cat.ico --overwrite --platform=win32
         
       - name: Determine version and create tag
         id: version
@@ -43,11 +53,10 @@ jobs:
             VERSION="${{ github.ref_name }}"
           else
             # For branch builds, use package.json version with branch name
-            PACKAGE_VERSION=$(node -p "require('./package.json').version")
             BRANCH_NAME="${{ github.ref_name }}"
             # Sanitize branch name for tag
             BRANCH_SAFE=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9._-]/-/g')
-            VERSION="v${PACKAGE_VERSION}-${BRANCH_SAFE}-$(date +'%Y%m%d%H%M%S')"
+            VERSION="v${{ steps.app_info.outputs.package_version }}-${BRANCH_SAFE}-$(date +'%Y%m%d%H%M%S')"
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Version: $VERSION"
@@ -55,11 +64,11 @@ jobs:
       - name: Create ZIP archive
         run: |
           cd dist
-          # Find the packaged app directory
-          APP_DIR=$(find . -maxdepth 1 -type d -name "komorebi-loading-*" | head -n 1)
+          # Find the packaged app directory (should match app_name-platform-arch)
+          APP_DIR=$(find . -maxdepth 1 -type d -name "${{ steps.app_info.outputs.app_name }}-*" | head -n 1)
           if [ -n "$APP_DIR" ]; then
             cd "$APP_DIR"
-            zip -r "../../komorebi-loading-${{ steps.version.outputs.version }}-win32.zip" .
+            zip -r "../../${{ steps.app_info.outputs.app_name }}-${{ steps.version.outputs.version }}-win32.zip" .
             cd ../..
           else
             echo "Error: Could not find packaged app directory"
@@ -69,8 +78,8 @@ jobs:
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: komorebi-loading-${{ steps.version.outputs.version }}
-          path: komorebi-loading-${{ steps.version.outputs.version }}-win32.zip
+          name: ${{ steps.app_info.outputs.app_name }}-${{ steps.version.outputs.version }}
+          path: ${{ steps.app_info.outputs.app_name }}-${{ steps.version.outputs.version }}-win32.zip
           
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -78,26 +87,26 @@ jobs:
           tag_name: ${{ steps.version.outputs.version }}
           name: Release ${{ steps.version.outputs.version }}
           body: |
-            ## komorebi-loading ${{ steps.version.outputs.version }}
+            ## ${{ steps.app_info.outputs.app_name }} ${{ steps.version.outputs.version }}
             
             ### Windows Build
             
             Download the ZIP file below and extract it to use the application.
             
             **Installation:**
-            1. Download `komorebi-loading-${{ steps.version.outputs.version }}-win32.zip`
+            1. Download `${{ steps.app_info.outputs.app_name }}-${{ steps.version.outputs.version }}-win32.zip`
             2. Extract the ZIP file to your desired location
-            3. Run `komorebi-loading.exe`
+            3. Run `${{ steps.app_info.outputs.app_name }}.exe`
             
             **Configuration:**
-            - Config file location: `%APPDATA%/komorebi-loading/config.json`
+            - Config file location: `%APPDATA%/${{ steps.app_info.outputs.app_name }}/config.json`
             - See [README](https://github.com/${{ github.repository }}/blob/main/README.md) for configuration options
             
             ---
             Built from commit: ${{ github.sha }}
           files: |
-            komorebi-loading-${{ steps.version.outputs.version }}-win32.zip
+            ${{ steps.app_info.outputs.app_name }}-${{ steps.version.outputs.version }}-win32.zip
           draft: false
-          prerelease: ${{ contains(github.ref, 'test-release-builds') || github.event_name == 'workflow_dispatch' }}
+          prerelease: ${{ github.ref_name == 'copilot/test-release-builds' || github.event_name == 'workflow_dispatch' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
