@@ -14,7 +14,7 @@ on:
 
 jobs:
   build-and-release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     permissions:
       contents: write
     
@@ -54,8 +54,8 @@ jobs:
           else
             # For branch builds, use package.json version with branch name
             BRANCH_NAME="${{ github.ref_name }}"
-            # Sanitize branch name for tag
-            BRANCH_SAFE=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9._-]/-/g')
+            # Sanitize and truncate branch name for tag (max 30 chars)
+            BRANCH_SAFE=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9._-]/-/g' | cut -c1-30)
             VERSION="v${{ steps.app_info.outputs.package_version }}-${BRANCH_SAFE}-$(date +'%Y%m%d%H%M%S')"
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
