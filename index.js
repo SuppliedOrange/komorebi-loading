@@ -1,21 +1,21 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
-const { spawn, exec } = require('child_process');
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
+const { app, BrowserWindow, ipcMain, shell } = require("electron");
+const { spawn, exec } = require("node:child_process");
+const fs = require("node:fs");
+const path = require("node:path");
+const os = require("node:os");
 
-const logFileName = './logs/waitForMeKomorebi.log';
+const logFileName = "./logs/waitForMeKomorebi.log";
 let startupAttempts = 0;
 let maxStartupAttempts = 8;
+let dev_mode = false;
 
 const defaultConfig = {
+	name: null,
+	welcome_message: "Bienvenue",
+	skipTaskbar: false, // Whether or not to make an icon show up in the task bar for this application.
 
-    name: null,
-    welcome_message: "Bienvenue",
-    skipTaskbar: false, // Whether or not to make an icon show up in the task bar for this application.
-
-    // Recreated from runnin the command "komorebic start --help"
-    /**
+	// Recreated from runnin the command "komorebic start --help"
+	/**
         -c, --config <CONFIG>      Path to a static configuration JSON file
         -a, --await-configuration  Wait for 'komorebic complete-configuration' to be sent before processing events
         -t, --tcp-port <TCP_PORT>  Start a TCP server on the given port to allow the direct sending of SocketMessages
@@ -27,23 +27,20 @@ const defaultConfig = {
         -h, --help                 Print help
         */
 
-    launch_options: {
+	launch_options: {
+		bar: true,
+		whkd: true,
+		masir: true,
+		clean_state: false,
+		await_configuration: false,
 
-        bar: true,
-        whkd: true,
-        masir: true,
-        clean_state: false,
-        await_configuration: false,
+		tcp_port: null,
+		config_file_path: null,
+	},
 
-        tcp_port: null,
-        config_file_path: null,
-        
-    },
-    
-    custom_args: [
-        // You can add custom args if you want i guess
-    ],
-
+	custom_args: [
+		// You can add custom args if you want i guess
+	],
 };
 
 /**
@@ -54,45 +51,43 @@ const defaultConfig = {
  * Please modify window properties for yourself.
  */
 const createWindow = () => {
+	const config = loadConfig();
 
-    const config = loadConfig();
+	const win = new BrowserWindow({
+		width: 350,
+		height: 400,
+		title: "WaitForMeKomorebi",
+		titleBarStyle: "hidden",
+		fullscreenable: false,
+		skipTaskbar: config.skipTaskbar,
+		icon: path.join(__dirname, "assets", "cat.ico"),
+		show: false,
+		webPreferences: {
+			nodeIntegration: true,
+			contextIsolation: false,
+		},
+	});
 
-    const win = new BrowserWindow({
-      width: 350,
-      height: 400,
-      title: "WaitForMeKomorebi",
-      titleBarStyle: 'hidden',
-      fullscreenable: false,
-      skipTaskbar: config.skipTaskbar,
-      icon: path.join(__dirname, 'assets', 'cat.ico'),
-      show: false,
-      webPreferences: {
-        nodeIntegration: true,
-        contextIsolation: false,
-      }
-    })
+	win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+	win.setAlwaysOnTop(true, "screen-saver", 1);
+	win.setMenu(null);
+	win.loadURL(`file://${__dirname}/index.html`);
 
-    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-    win.setAlwaysOnTop(true, 'screen-saver', 1);
-    win.setMenu(null)
-    win.loadURL(`file://${__dirname}/index.html`)
+	win.once("ready-to-show", () => {
+		win.show();
+	});
 
-    win.once('ready-to-show', () => {
-        win.show();
-    });
+	// Send config data when the window content is loaded
+	win.webContents.once("dom-ready", () => {
+		const config = loadConfig();
+		win.webContents.send("configData", config);
+	});
 
-    // Send config data when the window content is loaded
-    win.webContents.once('dom-ready', () => {
-        const config = loadConfig();
-        win.webContents.send('configData', config);
-    });
+	// For debugging
+	//win.webContents.openDevTools({ mode: 'detach' })
 
-    // For debugging
-    // win.webContents.openDevTools({ mode: 'detach' })
-
-    global.win = win;
-
-}
+	global.win = win;
+};
 
 /**
  * Checks if a specific process is running on the system
@@ -100,31 +95,23 @@ const createWindow = () => {
  * @returns {Promise<boolean>} - True if the process is running, false otherwise
  */
 async function isRunning(query) {
+	let platform = process.platform;
 
-    let platform = process.platform;
+	if (platform !== "win32") {
+		throw new Error(
+			"Komorebi at the moment runs on Windows only and your OS is not supported.",
+		);
+	}
 
-    if (platform !== 'win32') {
-
-        throw new Error("Komorebi at the moment runs on Windows only and your OS is not supported.");
-
-    }
-
-    return new Promise((resolve, reject) => {
-
-        exec('tasklist', (err, stdout, stderr) => {
-
-            if (err) {
-
-                reject(err);
-
-            } else {
-                
-                resolve(stdout.toLowerCase().indexOf(query.toLowerCase()) > -1);
-            }
-        });
-
-    });
-
+	return new Promise((resolve, reject) => {
+		exec("tasklist", (err, stdout, stderr) => {
+			if (err) {
+				reject(err);
+			} else {
+				resolve(stdout.toLowerCase().indexOf(query.toLowerCase()) > -1);
+			}
+		});
+	});
 }
 
 /**
@@ -132,61 +119,50 @@ async function isRunning(query) {
  * @returns {Promise<boolean>} - True if both processes are running, false otherwise
  */
 async function checkIfKomorebiIsRunning(config) {
+	try {
+		const isKomorebiRunning = await isRunning("komorebi.exe");
 
-    try {
-
-        const isKomorebiRunning = await isRunning('komorebi.exe');
-
-        if (config.launch_options.bar) {
-
-            const isKomorebiBarRunning = await isRunning('komorebi-bar.exe');
-            return isKomorebiRunning && isKomorebiBarRunning;
-
-        } else {
-
-            return isKomorebiRunning;
-
-        }
-
-    } catch (err) {
-
-        await log(`Error checking if Komorebi is running: ${err}`, 'ERROR');
-        return false;
-
-    }
-
+		if (config.launch_options.bar) {
+			const isKomorebiBarRunning = await isRunning("komorebi-bar.exe");
+			return isKomorebiRunning && isKomorebiBarRunning;
+		} else {
+			return isKomorebiRunning;
+		}
+	} catch (err) {
+		await log(`Error checking if Komorebi is running: ${err}`, "ERROR");
+		return false;
+	}
 }
-
 /**
  * Gradually fades out the main window by reducing opacity over time
  * @returns {Promise<void>} - Resolves when the fade out animation is complete
  */
 async function fadeOutWindow() {
+	return new Promise((resolve) => {
+		const duration = 500; // 0.5 seconds
+		const steps = 60;
+		const fadeInterval = duration / steps;
+		const fadeStep = 1 / steps;
 
-    return new Promise((resolve) => {
-        const duration = 500; // 0.5 seconds
-        const steps = 60;
-        const fadeInterval = duration / steps;
-        const fadeStep = 1 / steps;
+		let opacity = 1.0;
 
-        let opacity = 1.0;
+		const timer = setInterval(() => {
+			opacity -= fadeStep;
 
-        const timer = setInterval(() => {
+			if (opacity <= 0) {
+				clearInterval(timer);
+				resolve();
+			}
 
-            opacity -= fadeStep;
-
-            if (opacity <= 0) {
-                clearInterval(timer);
-                resolve();
+			if (global.win) {
+            try {
+				global.win.setOpacity(Math.max(0, opacity));
+            } catch (e) {
+                log("Error setting opacity", "INFO")
             }
-
-            if (global.win) {
-                global.win.setOpacity(Math.max(0, opacity));
-            }
-
-        }, fadeInterval);
-
-    });
+			}
+		}, fadeInterval);
+	});
 }
 
 /**
@@ -194,130 +170,151 @@ async function fadeOutWindow() {
  * Monitors the process, checks if it starts successfully, and retries up to the max retry limit.
  */
 async function startLoadingKomorebi() {
+	const config = loadConfig();
 
-    const config = loadConfig();
+	let launchOptions = ["start"];
 
-    let launchOptions = ["start"];
+	if (config.launch_options.bar) {
+		launchOptions.push("--bar");
+	}
 
-    if (config.launch_options.bar) {
-        launchOptions.push('--bar');
-    }
+	if (config.launch_options.whkd) {
+		launchOptions.push("--whkd");
+	}
 
-    if (config.launch_options.whkd) {
-        launchOptions.push('--whkd');
-    }
+	if (config.launch_options.masir) {
+		launchOptions.push("--masir");
+	}
 
-    if (config.launch_options.masir) {
-        launchOptions.push('--masir');
-    }
+	if (config.launch_options.clean_state) {
+		launchOptions.push("--clean-state");
+	}
 
-    if (config.launch_options.clean_state) {
-        launchOptions.push('--clean-state');
-    }
+	if (config.launch_options.await_configuration) {
+		launchOptions.push("--await-configuration");
+	}
 
-    if (config.launch_options.await_configuration) {
-        launchOptions.push('--await-configuration');
-    }
+	if (
+		config.launch_options.tcp_port !== 0 &&
+		config.launch_options.tcp_port !== null
+	) {
+		launchOptions.push(
+			`--tcp-port=${config.launch_options.tcp_port.toString()}`,
+		);
+	}
 
-    if (config.launch_options.tcp_port !== 0 && config.launch_options.tcp_port !== null) {
-        launchOptions.push(`--tcp-port=${config.launch_options.tcp_port.toString()}`);
-    }
+	if (config.launch_options.config_file_path) {
+		launchOptions.push(
+			`--config=${config.launch_options.config_file_path.toString()}`,
+		);
+	}
 
-    if (config.launch_options.config_file_path) {
-        launchOptions.push(`--config=${config.launch_options.config_file_path.toString()}`);
-    }
+	if (config.custom_args && Array.isArray(config.custom_args)) {
+		for (const arg of config.custom_args) {
+			if (arg) launchOptions.push(arg.toString());
+		}
+	}
 
-    if (config.custom_args && Array.isArray(config.custom_args)) {
+	log(
+		`Starting Komorebi with options: komorebic ${launchOptions.join(" ")}`,
+		"INFO",
+	);
+	const komo_running = await checkIfKomorebiIsRunning(config);
 
-        for (const arg of config.custom_args) {
-            if (arg) launchOptions.push(arg.toString());
-        }
+	if (!komo_running) {
+		const komorebi = spawn("komorebic", launchOptions);
 
-    }
+		komorebi.on("error", (err) => {
+			log(err.toString(), "ERROR");
+		});
 
-    log(`Starting Komorebi with options: komorebic ${launchOptions.join(' ')}`, 'INFO');
+		komorebi.on("data", (data) => {
+			log(data.toString(), "INFO");
+		});
 
-    const komorebi = spawn('komorebic', launchOptions);
+		komorebi.on("close", async (code) => {
+			if (code === 0) {
+				if (await checkIfKomorebiIsRunning(config)) {
+					log("Komorebi started successfully", "INFO");
 
-    komorebi.on('error', (err) => {
-        log(err.toString(), 'ERROR');
-    });
+					try {
+						win.webContents.send("komorebiStatus", {
+							status: true,
+						});
+					} catch (e) {
+						log("Failed to send komorebi Status message", "ERROR");
+					}
 
-    komorebi.on('data', (data) => {
-        log(data.toString(), 'INFO');
-    });
+					await new Promise((r) => setTimeout(r, 2000));
+					await fadeOutWindow();
 
-    komorebi.on('close', async (code) => {
+					process.exit();
+				} else {
+					if (startupAttempts >= maxStartupAttempts) {
+						log("Max startup attempts reached", "ERROR");
+						win.webContents.send("komorebiStatus", {
+							status: false,
+							error: "Max startup attempts reached",
+							logPath: path.resolve(logFileName),
+						});
+						startupAttempts = 0;
+						return;
+					}
 
-        if (code === 0) {
+					log(
+						"Komorebi claimed to start but did not. Retrying.",
+						"WARN",
+					);
+					startupAttempts += 1;
+					startLoadingKomorebi();
+				}
+			} else {
+				log("Komorebi failed to start", "ERROR");
 
-            if ( await checkIfKomorebiIsRunning(config) ) {
-
-                log('Komorebi started successfully', 'INFO');
-                
-                try {
-                    win.webContents.send('komorebiStatus', { status: true });
-                }
-                catch (e) {
-                    log('Failed to send komorebiStatus message', 'ERROR');
-                }
-                
-    
-                await new Promise(r => setTimeout(r, 2000));
-                await fadeOutWindow();
-    
-                process.exit();
-
-            }
-
-            else {
-
-                if (startupAttempts >= maxStartupAttempts) {
-                    log('Max startup attempts reached', 'ERROR');
-                    win.webContents.send('komorebiStatus', { status: false, error: 'Max startup attempts reached', logPath: path.resolve(logFileName) });
-                    startupAttempts = 0;
-                    return;
-                }
-
-                log('Komorebi claimed to start but did not. Retrying.', 'WARN');
-                startupAttempts += 1;
-                startLoadingKomorebi();
-
-            }
-
-        }
-
-        else {
-            log('Komorebi failed to start', 'ERROR');
-            win.webContents.send('komorebiStatus', { status: false, error: code, logPath: path.resolve(logFileName) });
-        }
-        
-    });
-
+				win.webContents.send("komorebiStatus", {
+					status: true,
+					error: code,
+					logPath: path.resolve(logFileName),
+				});
+			}
+		});
+	} else {
+		win.webContents.send("komorebiStatus", {
+			status: false,
+			error: "Komorebi is already running",
+			title: "Don't tease me",
+			logPath: path.resolve(logFileName),
+		});
+	
+			await new Promise((r) => setTimeout(r, 5000));
+			await fadeOutWindow();
+	
+			process.exit();
+	}
 }
 
 /**
  * Ensures the logs directory exists, creating it if necessary
  */
 function ensureLogDirectoryExists() {
-    try {
-        const logDir = path.dirname(logFileName);
-        fs.mkdirSync(logDir, { recursive: true });
-    } catch (err) {
-        console.error('Failed to create log directory:', err);
-    }
+	try {
+		const logDir = path.dirname(logFileName);
+		fs.mkdirSync(logDir, { recursive: true });
+	} catch (err) {
+		console.error("Failed to create log directory:", err);
+	}
 }
 
 /**
  * Clears the contents of the log file
  */
 async function clearLog() {
-    try {
-        ensureLogDirectoryExists();
-        fs.writeFileSync(logFileName, '', { flag: 'w' });
-    } catch (err) {
-        console.error('Failed to clear log file:', err);
-    }
+	try {
+		ensureLogDirectoryExists();
+		fs.writeFileSync(logFileName, "", { flag: "w" });
+	} catch (err) {
+		console.error("Failed to clear log file:", err);
+	}
 }
 
 /**
@@ -326,54 +323,45 @@ async function clearLog() {
  * @param {string} type - The log level (INFO, ERROR, WARN, etc.)
  */
 async function log(message, type) {
-
-    try {
-
-        ensureLogDirectoryExists();
-        fs.appendFileSync(logFileName, `[${type}] ${message}\n`);
-
-    } catch (err) {
-        console.error('Failed to write to log file:', err);
-    }
-
+	try {
+		ensureLogDirectoryExists();
+		if (dev_mode == true) {
+			fs.appendFileSync(logFileName, `[${type}] ${message}\n`);
+		} else return;
+	} catch (err) {
+		console.error("Failed to write to log file:", err);
+	}
 }
 
 /**
  * Updates the "I'm starting up..." message continuously with trailing dots
  */
 function setLoadingMessage() {
+	let trailingDots = 1;
 
-    let trailingDots = 1;
+	setInterval(() => {
+		if (trailingDots > 2) {
+			trailingDots = 0;
+		}
 
-    setInterval(() => {
+		trailingDots = trailingDots + 1;
 
-        if (trailingDots > 2) {
-            trailingDots = 0;
-        }
+		const message = "I'm starting up " + ".".repeat(trailingDots);
 
-        trailingDots = trailingDots + 1
-
-        const message = "I'm starting up " + ".".repeat(trailingDots)
-
-        try {
-
-            if (global.win) {
-                global.win.webContents.send('loadingMessage', message)
-            }
-            else {
-                log('Attempted to send `loadingMessage` through webContents but global.win is not defined', 'ERROR');
-            }
-
-        }
-        catch (e) {
-
-            // Window is prolly gone.
-            process.exit();
-
-        }
-
-    }, 400)
-
+		try {
+			if (global.win) {
+				global.win.webContents.send("loadingMessage", message);
+			} else {
+				log(
+					"Attempted to send `loadingMessage` through webContents but global.win is not defined",
+					"ERROR",
+				);
+			}
+		} catch (e) {
+			// Window is prolly gone.
+			process.exit();
+		}
+	}, 400);
 }
 
 /**
@@ -383,114 +371,106 @@ function setLoadingMessage() {
  * @returns {Object} - Object containing name and welcome_message properties
  */
 const loadConfig = () => {
+	// Routes to <windows-drive>:\Users\<username>\AppData\Roaming\komorebi-loading
 
-    // Routes to <windows-drive>:\Users\<username>\AppData\Roaming\komorebi-loading
+	const appDataPath = path.join(
+		process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming"),
+		"komorebi-loading",
+	);
+	const userConfigPath = path.join(appDataPath, "config.json");
 
-    const appDataPath = path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'komorebi-loading');
-    const userConfigPath = path.join(appDataPath, 'config.json');
-    
-    try {
+	try {
+		// Try to load from user's AppData first
 
-        // Try to load from user's AppData first
+		if (fs.existsSync(userConfigPath)) {
+			const configData = fs.readFileSync(userConfigPath, "utf8");
+			const config = JSON.parse(configData);
 
-        if (fs.existsSync(userConfigPath)) {
+			// If some fields are missing, fill with defaults
+			for (const key in defaultConfig) {
+				if (!config.hasOwnProperty(key)) {
+					config[key] = defaultConfig[key];
+				} else if (
+					key === "launch_options" &&
+					typeof config[key] !== "object"
+				) {
+					config[key] = defaultConfig[key];
+				} else if (
+					key === "custom_args" &&
+					!Array.isArray(config[key])
+				) {
+					config[key] = defaultConfig[key];
+				}
+			}
 
-            const configData = fs.readFileSync(userConfigPath, 'utf8');
-            const config = JSON.parse(configData);
+			// Re-update in case some fields were missing
+			fs.writeFileSync(userConfigPath, JSON.stringify(config, null, 4));
 
-            // If some fields are missing, fill with defaults
-            for (const key in defaultConfig) {
+			log(`Loaded config file from: ${userConfigPath}`, "INFO");
+			log(`Config data: ${JSON.stringify(config, null, 4)}`, "DEBUG");
 
-                if (!config.hasOwnProperty(key)) {
-                    config[key] = defaultConfig[key];
-                }
+			return config;
+		}
 
-                else if (key === 'launch_options' && typeof config[key] !== 'object') {
-                    config[key] = defaultConfig[key];
-                }
+		// Create AppData directory if it doesn't exist
+		if (!fs.existsSync(appDataPath)) {
+			fs.mkdirSync(appDataPath, { recursive: true });
+		}
 
-                else if (key === 'custom_args' && !Array.isArray(config[key])) {
-                    config[key] = defaultConfig[key];
-                }
+		// Create user config file
+		fs.writeFileSync(
+			userConfigPath,
+			JSON.stringify(defaultConfig, null, 4),
+		);
+		log(`Created config file at: ${userConfigPath}`, "INFO");
 
-            }
+		// If no name is set, use OS username
+		if (!defaultConfig.name) {
+			defaultConfig.name = os.userInfo().username;
+		}
 
-            // Re-update in case some fields were missing
-            fs.writeFileSync(userConfigPath, JSON.stringify(config, null, 4));
+		return defaultConfig;
+	} catch (error) {
+		log(`Failed to load config: ${error}`, "ERROR");
 
-            log(`Loaded config file from: ${userConfigPath}`, 'INFO');
-            log(`Config data: ${JSON.stringify(config, null, 4)}`, 'DEBUG');
-
-            return config;
-
-        }
-        
-        // Create AppData directory if it doesn't exist
-        if (!fs.existsSync(appDataPath)) {
-            fs.mkdirSync(appDataPath, { recursive: true });
-        }
-        
-        // Create user config file
-        fs.writeFileSync(userConfigPath, JSON.stringify(defaultConfig, null, 4));
-        log(`Created config file at: ${userConfigPath}`, 'INFO');
-        
-        // If no name is set, use OS username
-        if (!defaultConfig.name) {
-
-            defaultConfig.name = os.userInfo().username;
-
-        }
-
-        return defaultConfig;
-
-    } catch (error) {
-
-        log(`Failed to load config: ${error}`, 'ERROR');
-
-        return {
-            name: os.userInfo().username,
-            welcome_message: "Bienvenue"
-        };
-
-    }
+		return {
+			name: os.userInfo().username,
+			welcome_message: "Bienvenue",
+		};
+	}
 };
 
 app.whenReady().then(() => {
+	clearLog();
 
-    clearLog();
+	createWindow();
+	setLoadingMessage();
 
-    createWindow();
-    setLoadingMessage();
-
-    startLoadingKomorebi();
-
-})
-
-ipcMain.on('showLogs', () => {
-    shell.openPath(path.resolve(logFileName))
-    .catch(err => console.error('Failed to open logs:', err));
+	startLoadingKomorebi();
 });
 
-ipcMain.on('retry', () => {
-    startLoadingKomorebi();
+ipcMain.on("showLogs", () => {
+	shell
+		.openPath(path.resolve(logFileName))
+		.catch((err) => console.error("Failed to open logs:", err));
 });
 
-ipcMain.on('minimizeWindow', () => {
-    
-    if (global.win) {
-        global.win.minimize();
-    }
+ipcMain.on("retry", () => {
+	startLoadingKomorebi();
+});
 
-})
+ipcMain.on("minimizeWindow", () => {
+	if (global.win) {
+		global.win.minimize();
+	}
+});
 
-ipcMain.on('closeWindow', () => {
-    
-    if (global.win) {
-        global.win.close();
-    }
+ipcMain.on("closeWindow", () => {
+	if (global.win) {
+		global.win.close();
+	}
+});
 
-})
-
-app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') app.quit()
-})
+app.on("window-all-closed", () => {
+	if (process.platform !== "darwin") app.quit();
+});
