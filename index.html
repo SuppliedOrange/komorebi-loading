@@ -9,7 +9,7 @@
 		<title>WaitForMeKomorebi</title>
 	</head>
 
-	<body data-bs-theme="dark" style="background-color: #3a2425">
+	<body data-bs-theme="dark" style="background-color: #e18ce6">
 
 		<div class="tab-content container py-4">
 
@@ -101,11 +101,13 @@
 
 					<div class="text-center">
 
-						<h1 class="display-5 text-danger mb-3">
+						<h1 class="display-5 text-danger mb-3" id="error-title">
 							Oops! Something went wrong
 						</h1>
 
-						<p class="status-text mb-4">Failed to start Komorebi</p>
+						<p class="status-text mb-4" id="error-message">
+							Failed to start Komorebi
+						</p>
 
 						<div
 							class="d-flex flex-row align-items-center justify-content-around mt-2"
@@ -193,7 +195,7 @@
 
 				const welcomeElement = document.getElementById("welcome-message");
 				const nameElement = document.getElementById("user-name");
-				
+
 				if (welcomeElement) {
 					welcomeElement.textContent = config.welcome_message || "";
 				}
@@ -209,7 +211,6 @@
              * Switches to the appropriate tab based on the status
              */
 			ipcRenderer.on("komorebiStatus", (event, message) => {
-
 				switch (message.status) {
 
 					case true:
@@ -217,9 +218,19 @@
 						switchTab("success");
 						break;
 
-					case false:
+						case false:
 
-						switchTab("error");
+						{ switchTab("error");
+
+						let errorElement = document.getElementById("error-message")
+						let errorTitle = document.getElementById("error-title")
+						if (errorElement && message.title) {
+							errorTitle.textContent = message.title || "Oops! Something went wrong"
+							errorElement.textContent = message.error || "Failed to start komorebi";	
+						} else if (errorElement) {
+							errorTitle.textContent = "Oops! Something went wrong"
+							errorElement.textContent = message.error || "Failed to start komorebi"
+						}
 
 						document.getElementById("logs-button").onclick = () => {
 							ipcRenderer.send("showLogs");
@@ -229,10 +240,9 @@
 							() => {
 								ipcRenderer.send("retry");
 								switchTab("loading");
-								return;
 							};
 
-						break;
+						break; }
 
 					default:
 						break;
