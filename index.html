@@ -99,33 +99,96 @@
 					class="d-flex flex-column align-items-center justify-content-center min-vh-75"
 				>
 
-					<div class="text-center">
+					<div class="text-left">
 
-						<h1 class="display-5 text-danger mb-3">
+						<h1 class="display-5 text-danger mb-3 ml-3" id="error-title">
 							Oops! Something went wrong
 						</h1>
 
-						<p class="status-text mb-4">Failed to start Komorebi</p>
+						<p class="status-text mb-4 ml-3" id="error-message">
+							Failed to start Komorebi
+						</p>
+
+						<div id="process-list-container" class="mb-3 border border-secondary rounded overflow-y-auto overflow-x-hidden" style="display: none; max-height: 7rem;">
+							<div class="list-group list-group-flush" id="process-list"></div>
+						</div>
 
 						<div
 							class="d-flex flex-row align-items-center justify-content-around mt-2"
+							id="actions"
 						>
-
-							<button id="retry-button" class="btn-minimal">
+							<button id="retry-button" class="btn-minimal" style="display: none;">
 								Try again
 							</button>
 
-							<button id="logs-button" class="btn-minimal">
+							<button id="kill-button" class="btn-minimal" style="display: none;">
+								Kill Selected
+							</button>
+
+							<button id="start-button" class="btn-minimal" style="display: none;">
+								Start Anyway
+							</button>
+
+							<button id="logs-button" class="btn-minimal" style="display: none;">
 								Show logs
 							</button>
 
 						</div>
+
+
 
 					</div>
 
 				</div>
 
 			</div>
+
+			<!-- Kill Result Tab -->
+			<div id="kill-result-tab" class="tab-pane">
+
+				<div
+					class="d-flex flex-row align-items-end justify-content-end"
+				>
+					<div class="d-flex flex-row align-items-end gap-2 mx-3">
+
+						<button class="close-button btn-minimal"></button>
+
+						<button class="minimize-button btn-minimal"></button>
+
+					</div>
+
+				</div>
+
+				<div
+					class="d-flex flex-column align-items-center justify-content-center min-vh-75"
+				>
+					<div class="text-left">
+
+						<h1 class="display-5 text-danger mb-3" id="kill-result-title">
+							Process Kill Results
+						</h1>
+
+						<div class="mb-3" id="kill-result-summary">Summary not rendered - No data from backend</div>
+
+						<div
+							class="d-flex flex-row align-items-center justify-content-around mt-2"
+						>
+
+							<button id="start-after-kill-btn" class="btn-minimal">
+								Start Komorebi
+							</button>
+
+							<button id="logs-after-kill-btn" class="btn-minimal">
+								Show logs
+							</button>
+
+						</div>
+
+					</div>
+				</div>
+
+			</div>
+
 		</div>
 
 		<script>
@@ -154,27 +217,86 @@
             /**
              * Initializes event listeners for all buttons in the application
              */
-            const initializeButtons = () => {
+           const setupActionListeners = () => {
 
-                document.querySelectorAll(".close-button").forEach((button) => {
+				// Window click controls
 
-                    button.onclick = () => {
-                        ipcRenderer.send("closeWindow");
-                    };
+				document.addEventListener("click", (e) => {
+					if (e.target.closest(".close-button")) ipcRenderer.send("closeWindow");
+					if (e.target.closest(".minimize-button")) ipcRenderer.send("minimizeWindow");
+				});
 
-                });
+				// Retry
 
-                // Initialize minimize buttons
+				document.getElementById("retry-button").addEventListener("click", () => {
+					ipcRenderer.send("retry");
+					switchTab("loading");
+				});
 
-                document.querySelectorAll(".minimize-button").forEach((button) => {
+				// Start
 
-                    button.onclick = () => {
-                        ipcRenderer.send("minimizeWindow");
-                    };
+				document.getElementById("start-button").addEventListener("click", () => {
+					ipcRenderer.send("forceStart");
+					switchTab("loading");
+				});
 
-                });
+				// Show logs
 
-            };
+				document.getElementById("logs-button").addEventListener("click", () => {
+					ipcRenderer.send("showLogs");
+				});
+
+				// Kill
+
+				document.getElementById("kill-button").addEventListener("click", (element) => {
+
+					const checkboxes = document.querySelectorAll(".process-check:checked");
+
+					const pids = Array.from(checkboxes).map((cb) => Number.parseInt(cb.value));
+
+					if (pids.length === 0) return; // Nothing selected
+
+					switchTab("kill-result");
+					
+					const summary = document.getElementById("kill-result-summary");
+
+					if (summary) {
+
+						summary.innerHTML = `
+							<div class="d-flex align-items-center gap-2 mb-3">
+								<div class="spinner-border spinner-border-sm text-light" role="status">
+									<span class="visually-hidden">Killing...</span>
+								</div>
+								<span>Killing selected processes...</span>
+							</div>
+						`;
+
+					}
+
+					element.target.disabled = true;
+
+					ipcRenderer.send("killProcesses", pids);
+
+				});
+
+				// Force start
+
+				document.getElementById("start-after-kill-btn").addEventListener("click", () => {
+					ipcRenderer.send("forceStart");
+					switchTab("loading");
+				});
+
+				// Show logs
+
+				document.getElementById("logs-after-kill-btn").addEventListener("click", () => {
+					ipcRenderer.send("showLogs");
+				});
+
+			};
+
+			// Initialize interactions on dom content loaded
+
+			document.addEventListener("DOMContentLoaded", setupActionListeners);
 
             /**
              * Sets up the loading message with animated dots
@@ -193,7 +315,7 @@
 
 				const welcomeElement = document.getElementById("welcome-message");
 				const nameElement = document.getElementById("user-name");
-				
+
 				if (welcomeElement) {
 					welcomeElement.textContent = config.welcome_message || "";
 				}
@@ -210,39 +332,168 @@
              */
 			ipcRenderer.on("komorebiStatus", (event, message) => {
 
-				switch (message.status) {
+				// Is success?
 
-					case true:
+				if (message.status === true) {
 
-						switchTab("success");
-						break;
+					switchTab("success");
+					return;
 
-					case false:
+				}
 
-						switchTab("error");
+				// Handle Error State
+				switchTab("error");
+				
+				const errorTitle = document.getElementById("error-title");
+				const errorElement = document.getElementById("error-message");
+				
+				if (errorTitle) errorTitle.textContent = message.title || "Oops! Something went wrong";
+				if (errorElement) errorElement.textContent = message.error || "Failed to start komorebi";
 
-						document.getElementById("logs-button").onclick = () => {
-							ipcRenderer.send("showLogs");
-						};
+				// Cache UI elements
 
-						document.getElementById("retry-button").onclick =
-							() => {
-								ipcRenderer.send("retry");
-								switchTab("loading");
-								return;
-							};
+				const retryBtn = document.getElementById("retry-button");
+				const killBtn = document.getElementById("kill-button");
+				const startBtn = document.getElementById("start-button");
+				const logsBtn = document.getElementById("logs-button");
+				const processContainer = document.getElementById("process-list-container");
+				const processList = document.getElementById("process-list");
 
-						break;
+				// Reset visibility
 
-					default:
-						break;
+				[retryBtn, killBtn, startBtn, logsBtn, processContainer].forEach(el => el.style.display = "none");
+
+				// Duplication?
+
+				if (message.title === "Duplication!") {
+
+					processList.innerHTML = "";
+
+					if (message.processes.length === 0) {
+
+						processList.innerHTML = '<div class="list-group-item py-1 px-2 text-muted">No processes found.</div>';
+
+					} 
+					
+					else {
+
+						message.processes.forEach((proc) => {
+
+							const checkboxId = `process-${proc.pid}`;
+							const label = document.createElement("label");
+							const checkbox = document.createElement("input");
+							const nameSpan = document.createElement("span");
+							const pidSmall = document.createElement("small");
+
+							label.className = "list-group-item d-flex align-items-center py-1 px-2";
+							label.style.cssText = "cursor: pointer; user-select: none;";
+
+							label.setAttribute('for', checkboxId);
+
+							checkbox.id = checkboxId;
+							checkbox.className = "form-check-input process-check me-2";
+							checkbox.type = "checkbox";
+							checkbox.value = proc.pid;
+							checkbox.checked = true;
+
+							nameSpan.className = "me-auto";
+							nameSpan.textContent = proc.name;
+
+							pidSmall.className = "text-muted font-monospace";
+							pidSmall.textContent = `PID ${proc.pid}`;
+
+							label.appendChild(checkbox);
+							label.appendChild(nameSpan);
+							label.appendChild(pidSmall);
+
+							processList.appendChild(label);
+
+						});
+
+					}
+					
+					processContainer.style.display = "block";
+
+					killBtn.style.display = "";
+					startBtn.style.display = "";
+					logsBtn.style.display = "";
+
+				} 
+				
+				else {
+
+					// Default error state
+
+					retryBtn.style.display = "";
+					logsBtn.style.display = "";
+					
 				}
 
 			});
 
-            document.addEventListener("DOMContentLoaded", () => {
-                initializeButtons();
-            });
+			/**
+			 * Handles the results of the kill operation and updates the UI accordingly
+			 */
+			ipcRenderer.on("killResult", (event, results) => {
+
+				const killBtn = document.getElementById("kill-button");
+
+				if (killBtn) killBtn.disabled = false;
+
+
+				const summary = document.getElementById("kill-result-summary");
+
+				if (!summary) return;
+
+				let html = "";
+
+				if (results.killed.length > 0) {
+
+					html += `<p class="text-success">Success:</p><ul>`;
+
+					results.killed.forEach(pid => {
+						html += `<li>PID ${pid}</li>`;
+					});
+
+					html += `</ul>`;
+				}
+
+				if (results.failed.length > 0) {
+
+					html += `<p class="text-warning">Fail:</p><ul>`;
+
+					results.failed.forEach(item => {
+
+						const failedItem = document.createElement("li");
+						
+						failedItem.textContent = `PID ${item.pid}: ${item.error}`;
+						html += failedItem.outerHTML;
+
+					});
+
+					html += `</ul>`;
+
+				}
+
+				if (results.stillRunning.length > 0) {
+
+					html += `<p class="text-info">Still running:</p><ul>`;
+
+					results.stillRunning.forEach(proc => {
+						html += `<li>${proc.name} (PID: ${proc.pid})</li>`;
+					});
+
+					html += `</ul>`;
+
+				} else {
+
+					html += `<p class="text-success">All processes have been terminated.</p>`;
+
+				}
+
+				summary.innerHTML = html;
+
+			});
 
 		</script>
 	</body>

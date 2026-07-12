@@ -39,7 +39,7 @@
 	opacity: 0.9;
 }
 
-::-webkit-scrollbar {
+body::-webkit-scrollbar {
 	display: none;
 }
 
@@ -49,6 +49,7 @@ body {
 
 button,
 input,
+label,
 a,
 [role="button"],
 .non-draggable {

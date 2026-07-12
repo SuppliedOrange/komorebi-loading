@@ -54,7 +54,7 @@ Relevant fields:
 		"config_file_path": null, 
 	
 		// Whether or not to show this app in the taskbar when it's active, shows by default.
-		"skipTaskbar": false 
+		"skip_taskbar": false 
 
 	},
 
