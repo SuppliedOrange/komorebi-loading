@@ -217,27 +217,86 @@
             /**
              * Initializes event listeners for all buttons in the application
              */
-            const initializeButtons = () => {
+           const setupActionListeners = () => {
 
-                document.querySelectorAll(".close-button").forEach((button) => {
+				// Window click controls
 
-                    button.onclick = () => {
-                        ipcRenderer.send("closeWindow");
-                    };
+				document.addEventListener("click", (e) => {
+					if (e.target.closest(".close-button")) ipcRenderer.send("closeWindow");
+					if (e.target.closest(".minimize-button")) ipcRenderer.send("minimizeWindow");
+				});
 
-                });
+				// Retry
 
-                // Initialize minimize buttons
+				document.getElementById("retry-button").addEventListener("click", () => {
+					ipcRenderer.send("retry");
+					switchTab("loading");
+				});
 
-                document.querySelectorAll(".minimize-button").forEach((button) => {
+				// Start
 
-                    button.onclick = () => {
-                        ipcRenderer.send("minimizeWindow");
-                    };
+				document.getElementById("start-button").addEventListener("click", () => {
+					ipcRenderer.send("forceStart");
+					switchTab("loading");
+				});
 
-                });
+				// Show logs
 
-            };
+				document.getElementById("logs-button").addEventListener("click", () => {
+					ipcRenderer.send("showLogs");
+				});
+
+				// Kill
+
+				document.getElementById("kill-button").addEventListener("click", (element) => {
+
+					const checkboxes = document.querySelectorAll(".process-check:checked");
+
+					const pids = Array.from(checkboxes).map((cb) => Number.parseInt(cb.value));
+
+					if (pids.length === 0) return; // Nothing selected
+
+					switchTab("kill-result");
+					
+					const summary = document.getElementById("kill-result-summary");
+
+					if (summary) {
+
+						summary.innerHTML = `
+							<div class="d-flex align-items-center gap-2 mb-3">
+								<div class="spinner-border spinner-border-sm text-light" role="status">
+									<span class="visually-hidden">Killing...</span>
+								</div>
+								<span>Killing selected processes...</span>
+							</div>
+						`;
+
+					}
+
+					element.target.disabled = true;
+
+					ipcRenderer.send("killProcesses", pids);
+
+				});
+
+				// Force start
+
+				document.getElementById("start-after-kill-btn").addEventListener("click", () => {
+					ipcRenderer.send("forceStart");
+					switchTab("loading");
+				});
+
+				// Show logs
+
+				document.getElementById("logs-after-kill-btn").addEventListener("click", () => {
+					ipcRenderer.send("showLogs");
+				});
+
+			};
+
+			// Initialize interactions on dom content loaded
+
+			document.addEventListener("DOMContentLoaded", setupActionListeners);
 
             /**
              * Sets up the loading message with animated dots
@@ -272,169 +331,92 @@
              * Switches to the appropriate tab based on the status
              */
 			ipcRenderer.on("komorebiStatus", (event, message) => {
+
+				// Is success?
+
+				if (message.status === true) {
+
+					switchTab("success");
+					return;
+
+				}
+
+				// Handle Error State
+				switchTab("error");
 				
-				switch (message.status) {
+				const errorTitle = document.getElementById("error-title");
+				const errorElement = document.getElementById("error-message");
+				
+				if (errorTitle) errorTitle.textContent = message.title || "Oops! Something went wrong";
+				if (errorElement) errorElement.textContent = message.error || "Failed to start komorebi";
 
-					case true:
+				// Cache UI elements
 
-						switchTab("success");
-						break;
+				const retryBtn = document.getElementById("retry-button");
+				const killBtn = document.getElementById("kill-button");
+				const startBtn = document.getElementById("start-button");
+				const logsBtn = document.getElementById("logs-button");
+				const processContainer = document.getElementById("process-list-container");
+				const processList = document.getElementById("process-list");
 
-					case false:
+				// Reset visibility
 
-					{
-						
-						switchTab("error");
+				[retryBtn, killBtn, startBtn, logsBtn, processContainer].forEach(el => el.style.display = "none");
 
-						let errorElement = document.getElementById("error-message");
-						let errorTitle = document.getElementById("error-title");
+				// Duplication?
 
-						if (errorElement && message.title) {
+				if (message.title === "Duplication!") {
 
-							errorTitle.textContent = message.title || "Oops! Something went wrong"
-							errorElement.textContent = message.error || "Failed to start komorebi";	
+					processList.innerHTML = "";
 
-						} 
-						
-						else if (errorElement) {
+					if (message.processes.length === 0) {
 
-							errorTitle.textContent = "Oops! Something went wrong"
-							errorElement.textContent = message.error || "Failed to start komorebi"
+						processContainer.innerHTML = "<p>No processes found.</p>";
 
-						}
-
-						// Cache button references and hide all initially
-
-						const retryBtn = document.getElementById("retry-button");
-						const killBtn = document.getElementById("kill-button");
-						const startBtn = document.getElementById("start-button");
-						const logsBtn = document.getElementById("logs-button");
-						const processContainer = document.getElementById("process-list-container");
-
-						retryBtn.style.display = "none";
-						killBtn.style.display = "none";
-						startBtn.style.display = "none";
-						logsBtn.style.display = "none";
-						processContainer.style.display = "none";
-
-						if (message.title === "Duplication!") {
-
-							// Populate process checklist
-
-							const processList = document.getElementById("process-list");
-							processList.innerHTML = "";
-
-							if (message.processes.length === 0) {
-
-								processContainer.innerHTML = "<p>No processes found.</p>";
-								processContainer.style.display = "block";
-
-							} 
-							
-							else {
-
-								message.processes.forEach((proc) => {
-
-									const label = document.createElement("label");
-
-									label.className = "list-group-item d-flex align-items-center py-1 px-2";
-									label.style.cursor = "pointer";
-									label.style.userSelect = "none";
-
-									const checkboxId = `process-${proc.pid}`;
-
-									label.setAttribute('for', checkboxId);
-
-									label.innerHTML = `
-										<input id="${checkboxId}" class="form-check-input process-check me-2" type="checkbox" value="${proc.pid}" checked>
-										<span class="me-auto">${proc.name}</span>
-										<small class="text-muted font-monospace">PID ${proc.pid}</small>
-									`;
-
-									processList.appendChild(label);
-								});
-
-								processContainer.style.display = "block";
-							}
-
-							// Show duplication-specific buttons
-
-							killBtn.style.display = "";
-							startBtn.style.display = "";
-							logsBtn.style.display = "";
-
-							// Gather checked PIDs and send them to main
-
-							killBtn.onclick = () => {
-
-								const checkboxes = document.querySelectorAll(".process-check:checked");
-								const pids = Array.from(checkboxes).map((cb) => Number.parseInt(cb.value));
-
-								if (pids.length === 0) return; // nothing selected
-
-								switchTab("kill-result");
-
-								const summary = document.getElementById("kill-result-summary");
-								if (summary) {
-									summary.innerHTML = `
-										<div class="d-flex align-items-center gap-2 mb-3">
-											<div class="spinner-border spinner-border-sm text-light" role="status">
-												<span class="visually-hidden">Killing...</span>
-											</div>
-											<span>Killing selected processes...</span>
-										</div>
-									`;
-								}
-
-								killBtn.disabled = true;
-
-								ipcRenderer.send("killProcesses", pids);
-
-							};
-
-							// Start with bypassing duplication check
-
-							startBtn.onclick = () => {
-
-								ipcRenderer.send("forceStart");
-								switchTab("loading");
-
-							};
-
-						} 
-						
-						else {
-
-							// Default error state
-
-							retryBtn.style.display = "";
-							logsBtn.style.display = "";
-
-							retryBtn.onclick =
-								() => {
-									ipcRenderer.send("retry");
-									switchTab("loading");
-								};
-
-						}
-
-						logsBtn.onclick = () => {
-							ipcRenderer.send("showLogs");
-						};
-
-						break;
+					} 
 					
-					}
+					else {
 
-					default:
-						break;
+						message.processes.forEach((proc) => {
+
+							const checkboxId = `process-${proc.pid}`;
+							const label = document.createElement("label");
+
+							label.className = "list-group-item d-flex align-items-center py-1 px-2";
+							label.style.cssText = "cursor: pointer; user-select: none;";
+
+							label.setAttribute('for', checkboxId);
+
+							label.innerHTML = `
+								<input id="${checkboxId}" class="form-check-input process-check me-2" type="checkbox" value="${proc.pid}" checked>
+								<span class="me-auto">${proc.name}</span>
+								<small class="text-muted font-monospace">PID ${proc.pid}</small>
+							`;
+
+							processList.appendChild(label);
+
+						});
+
+					}
+					
+					processContainer.style.display = "block";
+
+					killBtn.style.display = "";
+					startBtn.style.display = "";
+					logsBtn.style.display = "";
+
+				} 
+				
+				else {
+
+					// Default error state
+
+					retryBtn.style.display = "";
+					logsBtn.style.display = "";
+					
 				}
 
 			});
-
-            document.addEventListener("DOMContentLoaded", () => {
-                initializeButtons();
-            });
 
 			/**
 			 * Handles the results of the kill operation and updates the UI accordingly
@@ -492,20 +474,6 @@
 				}
 
 				summary.innerHTML = html;
-
-				// Attach handlers to the new buttons
-				document.getElementById("start-after-kill-btn").onclick = () => {
-
-					ipcRenderer.send("forceStart");
-					switchTab("loading");
-
-				};
-
-				document.getElementById("logs-after-kill-btn").onclick = () => {
-
-					ipcRenderer.send("showLogs");
-
-				};
 
 			});
 
