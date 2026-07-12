@@ -5,7 +5,7 @@ const path = require("node:path");
 const os = require("node:os");
 
 const logFileName = "./logs/waitForMeKomorebi.log";
-const logLevel = process.env.LOG_LEVEL || "DEBUG";
+let logLevel = process.env.LOG_LEVEL || "DEBUG";
 
 let startupAttempts = 0;
 let maxStartupAttempts = 8;
@@ -15,7 +15,7 @@ const defaultConfig = {
 
 	name: null,
 	welcome_message: "Bienvenue",
-	skipTaskbar: false, // Whether or not to make an icon show up in the task bar for this application.
+	skip_taskbar: false, // Whether or not to make an icon show up in the task bar for this application.
 
 	// Recreated from runnin the command "komorebic start --help"
 	/**
@@ -44,6 +44,7 @@ const defaultConfig = {
 	custom_args: [
 		// You can add custom args if you want i guess
 	],
+	log_level: "DEBUG",
 
 };
 
@@ -56,10 +57,20 @@ const defaultConfig = {
  */
 const createWindow = () => {
 
-	log("Creating main window", "INFO");
-
 	const config = loadConfig();
 	loadedConfig = config;
+
+	// Set config log level to the one specified in the config file, if present
+
+	if (config.log_level) {
+
+		logLevel = config.log_level;
+
+		log(`Log level set to ${logLevel} from config`, "INFO");
+
+	}
+
+	log("Creating main window", "INFO");
 	
 	const win = new BrowserWindow({
 
@@ -237,7 +248,7 @@ async function getProcessesStatus(processNames) {
 
             }
 	
-			const lines = stdout.trim().split('\r\n');
+			const lines = stdout.trim().split(/\r?\n/);
 
 			// log(`Lines parsed:\n${lines}`, "DEBUG");
 
@@ -420,9 +431,17 @@ async function startLoadingKomorebi(skipDuplicationChecker = false) {
 			log(err.toString(), "ERROR");
 		});
 
-		komorebi.on("data", (data) => {
-			log(data.toString(), "INFO");
-		});
+ 		komorebi.stdout?.on("data", (data) => {
+
+ 			log(data.toString(), "INFO");
+
+ 		});
+
+ 		komorebi.stderr?.on("data", (data) => {
+
+ 			log(data.toString(), "ERROR");
+
+ 		});
 
 		komorebi.on("close", async (code) => {
 
@@ -434,7 +453,7 @@ async function startLoadingKomorebi(skipDuplicationChecker = false) {
 
 					try {
 
-						win.webContents.send("komorebiStatus", {
+						global.win.webContents.send("komorebiStatus", {
 							status: true,
 						});
 
@@ -481,7 +500,7 @@ async function startLoadingKomorebi(skipDuplicationChecker = false) {
 
 				log("Komorebi failed to start", "ERROR");
 
-				win.webContents.send("komorebiStatus", {
+				global.win.webContents.send("komorebiStatus", {
 					status: false,
 					error: "Komorebi failed to start",
 				});
@@ -565,7 +584,7 @@ async function clearLog() {
 
 	} catch (err) {
 
-		log("Failed to clear log file:", "ERROR");
+		log(`Failed to clear log file: ${err.message}`, "ERROR");
 
 	}
 
@@ -665,7 +684,7 @@ function setLoadingMessage() {
 
 		} catch (e) {
 
-			log("Failed to send loading message (window is probably gone):", "WARN");
+			log(`Failed to send loading message (window is probably gone): ${e.message}`, "WARN");
 			// Window is prolly gone.
 			process.exit();
 
@@ -786,9 +805,10 @@ const loadConfig = () => {
 
 	} catch (error) {
 
-		log(`Failed to load config: ${error}`, "ERROR");
+		log(`Failed to load config: ${error.message}`, "ERROR");
 
 		return {
+			...defaultConfig,
 			name: os.userInfo().username,
 			welcome_message: "Bienvenue",
 		};
@@ -801,16 +821,16 @@ app.whenReady().then(() => {
 
 	log("App ready", "INFO");
 
-	log("Clearing log.");
+	log("Clearing log.", "INFO");
 	clearLog();
 
-	log("Creating window.");
+	log("Creating window.", "INFO");
 	createWindow();
 
-	log("Setting loading message.");
+	log("Setting loading message.", "INFO");
 	setLoadingMessage();
 
-	log("Starting Komorebi loading process.");
+	log("Starting Komorebi loading process.", "INFO");
 	startLoadingKomorebi();
 	
 });
@@ -928,7 +948,7 @@ ipcMain.on("killProcesses", async (event, pids) => {
 
 	} catch (e) {
 
-		log(`Error re-checking processes after kill: ${e}`, "ERROR");
+		log(`Error re-checking processes after kill: ${e.message}`, "ERROR");
 
 		results.stillRunning = [];
 

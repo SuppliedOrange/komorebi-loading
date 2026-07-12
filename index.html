@@ -371,7 +371,7 @@
 
 					if (message.processes.length === 0) {
 
-						processContainer.innerHTML = "<p>No processes found.</p>";
+						processList.innerHTML = '<div class="list-group-item py-1 px-2 text-muted">No processes found.</div>';
 
 					} 
 					
@@ -381,17 +381,30 @@
 
 							const checkboxId = `process-${proc.pid}`;
 							const label = document.createElement("label");
+							const checkbox = document.createElement("input");
+							const nameSpan = document.createElement("span");
+							const pidSmall = document.createElement("small");
 
 							label.className = "list-group-item d-flex align-items-center py-1 px-2";
 							label.style.cssText = "cursor: pointer; user-select: none;";
 
 							label.setAttribute('for', checkboxId);
 
-							label.innerHTML = `
-								<input id="${checkboxId}" class="form-check-input process-check me-2" type="checkbox" value="${proc.pid}" checked>
-								<span class="me-auto">${proc.name}</span>
-								<small class="text-muted font-monospace">PID ${proc.pid}</small>
-							`;
+							checkbox.id = checkboxId;
+							checkbox.className = "form-check-input process-check me-2";
+							checkbox.type = "checkbox";
+							checkbox.value = proc.pid;
+							checkbox.checked = true;
+
+							nameSpan.className = "me-auto";
+							nameSpan.textContent = proc.name;
+
+							pidSmall.className = "text-muted font-monospace";
+							pidSmall.textContent = `PID ${proc.pid}`;
+
+							label.appendChild(checkbox);
+							label.appendChild(nameSpan);
+							label.appendChild(pidSmall);
 
 							processList.appendChild(label);
 
@@ -450,7 +463,12 @@
 					html += `<p class="text-warning">Fail:</p><ul>`;
 
 					results.failed.forEach(item => {
-						html += `<li>PID ${item.pid}: ${item.error}</li>`;
+
+						const failedItem = document.createElement("li");
+						
+						failedItem.textContent = `PID ${item.pid}: ${item.error}`;
+						html += failedItem.outerHTML;
+
 					});
 
 					html += `</ul>`;
