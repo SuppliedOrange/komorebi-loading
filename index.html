@@ -9,7 +9,7 @@
 		<title>WaitForMeKomorebi</title>
 	</head>
 
-	<body data-bs-theme="dark" style="background-color: #e18ce6">
+	<body data-bs-theme="dark" style="background-color: #3a2425">
 
 		<div class="tab-content container py-4">
 
@@ -99,35 +99,96 @@
 					class="d-flex flex-column align-items-center justify-content-center min-vh-75"
 				>
 
-					<div class="text-center">
+					<div class="text-left">
 
-						<h1 class="display-5 text-danger mb-3" id="error-title">
+						<h1 class="display-5 text-danger mb-3 ml-3" id="error-title">
 							Oops! Something went wrong
 						</h1>
 
-						<p class="status-text mb-4" id="error-message">
+						<p class="status-text mb-4 ml-3" id="error-message">
 							Failed to start Komorebi
 						</p>
 
+						<div id="process-list-container" class="mb-3 border border-secondary rounded overflow-y-auto overflow-x-hidden" style="display: none; max-height: 7rem;">
+							<div class="list-group list-group-flush" id="process-list"></div>
+						</div>
+
 						<div
 							class="d-flex flex-row align-items-center justify-content-around mt-2"
+							id="actions"
 						>
-
-							<button id="retry-button" class="btn-minimal">
+							<button id="retry-button" class="btn-minimal" style="display: none;">
 								Try again
 							</button>
 
-							<button id="logs-button" class="btn-minimal">
+							<button id="kill-button" class="btn-minimal" style="display: none;">
+								Kill Selected
+							</button>
+
+							<button id="start-button" class="btn-minimal" style="display: none;">
+								Start Anyway
+							</button>
+
+							<button id="logs-button" class="btn-minimal" style="display: none;">
 								Show logs
 							</button>
 
 						</div>
+
+
 
 					</div>
 
 				</div>
 
 			</div>
+
+			<!-- Kill Result Tab -->
+			<div id="kill-result-tab" class="tab-pane">
+
+				<div
+					class="d-flex flex-row align-items-end justify-content-end"
+				>
+					<div class="d-flex flex-row align-items-end gap-2 mx-3">
+
+						<button class="close-button btn-minimal"></button>
+
+						<button class="minimize-button btn-minimal"></button>
+
+					</div>
+
+				</div>
+
+				<div
+					class="d-flex flex-column align-items-center justify-content-center min-vh-75"
+				>
+					<div class="text-left">
+
+						<h1 class="display-5 text-danger mb-3" id="kill-result-title">
+							Process Kill Results
+						</h1>
+
+						<div class="mb-3" id="kill-result-summary">Summary not rendered - No data from backend</div>
+
+						<div
+							class="d-flex flex-row align-items-center justify-content-around mt-2"
+						>
+
+							<button id="start-after-kill-btn" class="btn-minimal">
+								Start Komorebi
+							</button>
+
+							<button id="logs-after-kill-btn" class="btn-minimal">
+								Show logs
+							</button>
+
+						</div>
+
+					</div>
+				</div>
+
+			</div>
+
 		</div>
 
 		<script>
@@ -211,6 +272,7 @@
              * Switches to the appropriate tab based on the status
              */
 			ipcRenderer.on("komorebiStatus", (event, message) => {
+				
 				switch (message.status) {
 
 					case true:
@@ -218,31 +280,151 @@
 						switchTab("success");
 						break;
 
-						case false:
+					case false:
 
-						{ switchTab("error");
+					{
+						
+						switchTab("error");
 
-						let errorElement = document.getElementById("error-message")
-						let errorTitle = document.getElementById("error-title")
+						let errorElement = document.getElementById("error-message");
+						let errorTitle = document.getElementById("error-title");
+
 						if (errorElement && message.title) {
+
 							errorTitle.textContent = message.title || "Oops! Something went wrong"
 							errorElement.textContent = message.error || "Failed to start komorebi";	
-						} else if (errorElement) {
+
+						} 
+						
+						else if (errorElement) {
+
 							errorTitle.textContent = "Oops! Something went wrong"
 							errorElement.textContent = message.error || "Failed to start komorebi"
+
 						}
 
-						document.getElementById("logs-button").onclick = () => {
+						// Cache button references and hide all initially
+
+						const retryBtn = document.getElementById("retry-button");
+						const killBtn = document.getElementById("kill-button");
+						const startBtn = document.getElementById("start-button");
+						const logsBtn = document.getElementById("logs-button");
+						const processContainer = document.getElementById("process-list-container");
+
+						retryBtn.style.display = "none";
+						killBtn.style.display = "none";
+						startBtn.style.display = "none";
+						logsBtn.style.display = "none";
+						processContainer.style.display = "none";
+
+						if (message.title === "Duplication!") {
+
+							// Populate process checklist
+
+							const processList = document.getElementById("process-list");
+							processList.innerHTML = "";
+
+							if (message.processes.length === 0) {
+
+								processContainer.innerHTML = "<p>No processes found.</p>";
+								processContainer.style.display = "block";
+
+							} 
+							
+							else {
+
+								message.processes.forEach((proc) => {
+
+									const label = document.createElement("label");
+
+									label.className = "list-group-item d-flex align-items-center py-1 px-2";
+									label.style.cursor = "pointer";
+									label.style.userSelect = "none";
+
+									const checkboxId = `process-${proc.pid}`;
+
+									label.setAttribute('for', checkboxId);
+
+									label.innerHTML = `
+										<input id="${checkboxId}" class="form-check-input process-check me-2" type="checkbox" value="${proc.pid}" checked>
+										<span class="me-auto">${proc.name}</span>
+										<small class="text-muted font-monospace">PID ${proc.pid}</small>
+									`;
+
+									processList.appendChild(label);
+								});
+
+								processContainer.style.display = "block";
+							}
+
+							// Show duplication-specific buttons
+
+							killBtn.style.display = "";
+							startBtn.style.display = "";
+							logsBtn.style.display = "";
+
+							// Gather checked PIDs and send them to main
+
+							killBtn.onclick = () => {
+
+								const checkboxes = document.querySelectorAll(".process-check:checked");
+								const pids = Array.from(checkboxes).map((cb) => Number.parseInt(cb.value));
+
+								if (pids.length === 0) return; // nothing selected
+
+								switchTab("kill-result");
+
+								const summary = document.getElementById("kill-result-summary");
+								if (summary) {
+									summary.innerHTML = `
+										<div class="d-flex align-items-center gap-2 mb-3">
+											<div class="spinner-border spinner-border-sm text-light" role="status">
+												<span class="visually-hidden">Killing...</span>
+											</div>
+											<span>Killing selected processes...</span>
+										</div>
+									`;
+								}
+
+								killBtn.disabled = true;
+
+								ipcRenderer.send("killProcesses", pids);
+
+							};
+
+							// Start with bypassing duplication check
+
+							startBtn.onclick = () => {
+
+								ipcRenderer.send("forceStart");
+								switchTab("loading");
+
+							};
+
+						} 
+						
+						else {
+
+							// Default error state
+
+							retryBtn.style.display = "";
+							logsBtn.style.display = "";
+
+							retryBtn.onclick =
+								() => {
+									ipcRenderer.send("retry");
+									switchTab("loading");
+								};
+
+						}
+
+						logsBtn.onclick = () => {
 							ipcRenderer.send("showLogs");
 						};
 
-						document.getElementById("retry-button").onclick =
-							() => {
-								ipcRenderer.send("retry");
-								switchTab("loading");
-							};
-
-						break; }
+						break;
+					
+					}
 
 					default:
 						break;
@@ -253,6 +435,79 @@
             document.addEventListener("DOMContentLoaded", () => {
                 initializeButtons();
             });
+
+			/**
+			 * Handles the results of the kill operation and updates the UI accordingly
+			 */
+			ipcRenderer.on("killResult", (event, results) => {
+
+				const killBtn = document.getElementById("kill-button");
+
+				if (killBtn) killBtn.disabled = false;
+
+
+				const summary = document.getElementById("kill-result-summary");
+
+				if (!summary) return;
+
+				let html = "";
+
+				if (results.killed.length > 0) {
+
+					html += `<p class="text-success">Success:</p><ul>`;
+
+					results.killed.forEach(pid => {
+						html += `<li>PID ${pid}</li>`;
+					});
+
+					html += `</ul>`;
+				}
+
+				if (results.failed.length > 0) {
+
+					html += `<p class="text-warning">Fail:</p><ul>`;
+
+					results.failed.forEach(item => {
+						html += `<li>PID ${item.pid}: ${item.error}</li>`;
+					});
+
+					html += `</ul>`;
+
+				}
+
+				if (results.stillRunning.length > 0) {
+
+					html += `<p class="text-info">Still running:</p><ul>`;
+
+					results.stillRunning.forEach(proc => {
+						html += `<li>${proc.name} (PID: ${proc.pid})</li>`;
+					});
+
+					html += `</ul>`;
+
+				} else {
+
+					html += `<p class="text-success">All processes have been terminated.</p>`;
+
+				}
+
+				summary.innerHTML = html;
+
+				// Attach handlers to the new buttons
+				document.getElementById("start-after-kill-btn").onclick = () => {
+
+					ipcRenderer.send("forceStart");
+					switchTab("loading");
+
+				};
+
+				document.getElementById("logs-after-kill-btn").onclick = () => {
+
+					ipcRenderer.send("showLogs");
+
+				};
+
+			});
 
 		</script>
 	</body>
